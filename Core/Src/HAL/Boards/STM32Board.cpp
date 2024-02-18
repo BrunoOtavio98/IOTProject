@@ -85,7 +85,6 @@ void STM32Board::ConfigureModem(AvailableModemInterfaces modem_interface) {
 		default:
 			break;
 	}
-
 }
 
 void STM32Board::Error_Handler() {

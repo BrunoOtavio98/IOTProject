@@ -8,6 +8,8 @@
 #ifndef SRC_HAL_DEVICES_COMMUNICATION_INTERFACES_MODEMINTERFACE_H_
 #define SRC_HAL_DEVICES_COMMUNICATION_INTERFACES_MODEMINTERFACE_H_
 
+#include "DebugController/DebugInterface.h"
+
 #include <memory>
 #include <functional>
 #include <map>
@@ -25,11 +27,17 @@ class UartCommunicationInterface;
 }
 
 namespace HAL {
+namespace DebugController {
+class DebugController;
+}
+}
+
+namespace HAL {
 namespace Devices {
 namespace IOT {
 namespace Interfaces {
 
-class ModemInterface {
+class ModemInterface : public HAL::DebugController::DebugInterface {
 public:
 	enum ATCommands {
 		ATE,
@@ -106,6 +114,7 @@ public:
 
 private:
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication_;
+    std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
     std::map<ATCommands, ATCommandConfiguration> modem_commands_;
     ATCommands current_command_executed_;
 
