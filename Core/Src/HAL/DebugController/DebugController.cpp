@@ -21,6 +21,13 @@ DebugController::~DebugController() {
 
 }
 
+void DebugController::RegisterModuleToDebug(DebugInterface *module) {
+	if(module != nullptr) {
+		list_of_modules_.push_back(module);
+	}
+}
+
+
 void DebugController::PrintDebug(DebugInterface *module, const std::string &msg) {
 
 	if(!CheckIfModuleCanLog(module, DebugInterface::MessageVerbosity::DEBUG_MSG)) {

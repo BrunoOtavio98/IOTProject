@@ -35,6 +35,7 @@ class DebugController {
 	void PrintInfo(DebugInterface *module, const std::string &msg);
 	void PrintWarn(DebugInterface *module, const std::string &msg);
 	void PrintError(DebugInterface *module, const std::string &msg);
+	void RegisterModuleToDebug(DebugInterface *module);
 
  private:
 	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_debug_;
