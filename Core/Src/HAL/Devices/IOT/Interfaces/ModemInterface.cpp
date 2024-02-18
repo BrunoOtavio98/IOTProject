@@ -6,10 +6,15 @@
  */
 
 #include "ModemInterface.h"
+
 #include "Devices/Communication/Interfaces/UartCommunicationInterface.h"
+#include "DebugController/DebugController.h"
+
 #include <functional>
 
 using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;
+using HAL::DebugController::DebugInterface;
+using HAL::DebugController::DebugController;
 
 namespace HAL {
 namespace Devices {
@@ -21,7 +26,9 @@ static void StaticReceiveCommandCallBackWrapper(void* instance, const std::strin
 }
 
 ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface> &uart_communication) :
+							   DebugInterface("Modem"),
 							   uart_communication_(uart_communication) {
+	debug_controller_->RegisterModuleToDebug(this);
 	uart_communication_->ListenRxIT(std::bind(&StaticReceiveCommandCallBackWrapper, this, std::placeholders::_1));
 }
 
@@ -62,6 +69,7 @@ bool ModemInterface::SendCommand(const AtCommandTypes &command_type, const ATCom
 }
 
 void ModemInterface::ReceiveCommandCallBack(const std::string &received_message) {
+	debug_controller_->PrintDebug(this, received_message);
 	auto it = modem_commands_.find(current_command_executed_);
 
 	if(it != modem_commands_.end()) {
