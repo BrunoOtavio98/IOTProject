@@ -42,7 +42,7 @@ class DebugController {
 	std::vector<DebugInterface *> list_of_modules_;
 
 	bool CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity);
-	void PrintMessage(const std::string &message);
+	void PrintMessage(const std::string &module, const std::string &message);
 };
 
 }

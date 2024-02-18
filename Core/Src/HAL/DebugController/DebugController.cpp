@@ -40,7 +40,7 @@ void DebugController::PrintInfo(DebugInterface *module, const std::string &msg) 
 		return;
 	}
 
-	PrintMessage(msg);
+	PrintMessage(module->GetModuleName(), msg);
 }
 
 void DebugController::PrintWarn(DebugInterface *module, const std::string &msg) {
@@ -48,7 +48,7 @@ void DebugController::PrintWarn(DebugInterface *module, const std::string &msg) 
 		return;
 	}
 
-	PrintMessage(msg);
+	PrintMessage(module->GetModuleName(), msg);
 }
 
 void DebugController::PrintError(DebugInterface *module, const std::string &msg) {
@@ -56,7 +56,7 @@ void DebugController::PrintError(DebugInterface *module, const std::string &msg)
 		return;
 	}
 
-	PrintMessage(msg);
+	PrintMessage(module->GetModuleName(), msg);
 }
 
 bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity) {
@@ -76,8 +76,8 @@ bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInt
 	return true;
 }
 
-void DebugController::PrintMessage(const std::string &message) {
-	uart_debug_->WriteData(message);
+void DebugController::PrintMessage(const std::string &module_name, const std::string &message) {
+	uart_debug_->WriteData(module_name + ": " + message);
 }
 
 }

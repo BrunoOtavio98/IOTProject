@@ -8,6 +8,7 @@
 #ifndef SRC_HAL_DEBUGCONTROLLER_DEBUGINTERFACE_H_
 #define SRC_HAL_DEBUGCONTROLLER_DEBUGINTERFACE_H_
 
+#include <string>
 
 namespace HAL {
 namespace DebugController {
@@ -21,14 +22,16 @@ public:
 	ERROR_MSG
   };
 
- DebugInterface();
+ DebugInterface(const std::string module_name);
  virtual ~DebugInterface();
 
  void ChangeVerbosity(const MessageVerbosity &new_verbosity);
  MessageVerbosity GetCurrentVerbosity();
+ std::string GetModuleName();
 
 private:
  MessageVerbosity current_verbosity_used_;
+ std::string module_name_;
 
 };
 

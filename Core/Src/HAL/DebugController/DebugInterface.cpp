@@ -10,7 +10,7 @@
 namespace HAL {
 namespace DebugController {
 
-DebugInterface::DebugInterface():current_verbosity_used_(MessageVerbosity::ERROR_MSG) {
+DebugInterface::DebugInterface(const std::string module_name):current_verbosity_used_(MessageVerbosity::ERROR_MSG), module_name_(module_name) {
 
 }
 
@@ -24,6 +24,10 @@ void DebugInterface::ChangeVerbosity(const MessageVerbosity &new_verbosity) {
 
 DebugInterface::MessageVerbosity DebugInterface::GetCurrentVerbosity() {
 	return current_verbosity_used_;
+}
+
+std::string DebugInterface::GetModuleName() {
+	return module_name_;
 }
 
 }
