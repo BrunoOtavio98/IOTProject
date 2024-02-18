@@ -13,6 +13,12 @@
 #include "Devices/IOT/Interfaces/ModemInterface.h"
 
 namespace HAL {
+namespace DebugController {
+class DebugController;
+}
+}
+
+namespace HAL {
 namespace Boards {
 
 class BoardInterface {
@@ -29,6 +35,7 @@ protected:
 	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> modem_uart_communication_;
 	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> debug_uart_communication_;
 	std::unique_ptr<HAL::Devices::IOT::Interfaces::ModemInterface> modem_interface_;
+	std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
 };
 
 }
