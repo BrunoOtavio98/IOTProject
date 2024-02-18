@@ -36,13 +36,14 @@ class DebugController {
 	void PrintWarn(DebugInterface *module, const std::string &msg);
 	void PrintError(DebugInterface *module, const std::string &msg);
 	void RegisterModuleToDebug(DebugInterface *module);
+	std::string MessageTypeToStr(const DebugInterface::MessageVerbosity &verbosity);
 
  private:
 	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_debug_;
 	std::vector<DebugInterface *> list_of_modules_;
 
 	bool CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity);
-	void PrintMessage(const std::string &module, const std::string &message);
+	void PrintMessage(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message);
 };
 
 }

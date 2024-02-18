@@ -34,7 +34,7 @@ void DebugController::PrintDebug(DebugInterface *module, const std::string &msg)
 		return;
 	}
 
-	PrintMessage(module->GetModuleName(), msg);
+	PrintMessage(DebugInterface::MessageVerbosity::DEBUG_MSG, module->GetModuleName(), msg);
 }
 
 void DebugController::PrintInfo(DebugInterface *module, const std::string &msg) {
@@ -42,7 +42,7 @@ void DebugController::PrintInfo(DebugInterface *module, const std::string &msg) 
 		return;
 	}
 
-	PrintMessage(module->GetModuleName(), msg);
+	PrintMessage(DebugInterface::MessageVerbosity::INFO_MSG, module->GetModuleName(), msg);
 }
 
 void DebugController::PrintWarn(DebugInterface *module, const std::string &msg) {
@@ -50,7 +50,7 @@ void DebugController::PrintWarn(DebugInterface *module, const std::string &msg) 
 		return;
 	}
 
-	PrintMessage(module->GetModuleName(), msg);
+	PrintMessage(DebugInterface::MessageVerbosity::WARN_MSG, module->GetModuleName(), msg);
 }
 
 void DebugController::PrintError(DebugInterface *module, const std::string &msg) {
@@ -58,7 +58,7 @@ void DebugController::PrintError(DebugInterface *module, const std::string &msg)
 		return;
 	}
 
-	PrintMessage(module->GetModuleName(), msg);
+	PrintMessage(DebugInterface::MessageVerbosity::ERROR_MSG, module->GetModuleName(), msg);
 }
 
 bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity) {
@@ -78,8 +78,26 @@ bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInt
 	return true;
 }
 
-void DebugController::PrintMessage(const std::string &module_name, const std::string &message) {
-	uart_debug_->WriteData(module_name + ": " + message);
+std::string DebugController::MessageTypeToStr(const DebugInterface::MessageVerbosity &verbosity) {
+
+	switch (verbosity) {
+		case DebugInterface::MessageVerbosity::DEBUG_MSG:
+			return "DBG";
+		case DebugInterface::MessageVerbosity::ERROR_MSG:
+			return "ERR";
+		case DebugInterface::MessageVerbosity::INFO_MSG:
+			return "INF";
+		case DebugInterface::MessageVerbosity::WARN_MSG:
+			return "WRN";
+		default:
+			return "";
+	}
+}
+
+void DebugController::PrintMessage(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module_name, const std::string &message) {
+	std::string str_verbosity = MessageTypeToStr(msg_verbosity);
+
+	uart_debug_->WriteData("(" + str_verbosity + ")" + module_name + ": " + message);
 }
 
 }
