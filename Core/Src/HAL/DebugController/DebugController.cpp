@@ -6,13 +6,14 @@
  */
 
 #include "DebugController.h"
+#include "Devices/Communication/Interfaces/UartCommunicationInterface.h"
 
 #include <algorithm>
 
 namespace HAL {
 namespace DebugController {
 
-DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) {
+DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) : uart_debug_(uart_communication) {
 
 }
 
@@ -69,7 +70,7 @@ bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInt
 }
 
 void DebugController::PrintMessage(const std::string &message) {
-
+	uart_debug_->WriteData(message);
 }
 
 }
