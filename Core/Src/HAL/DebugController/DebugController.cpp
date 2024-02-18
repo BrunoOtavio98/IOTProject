@@ -33,6 +33,8 @@ void DebugController::PrintDebug(DebugInterface *module, const std::string &msg)
 	if(!CheckIfModuleCanLog(module, DebugInterface::MessageVerbosity::DEBUG_MSG)) {
 		return;
 	}
+
+	PrintMessage(module->GetModuleName(), msg);
 }
 
 void DebugController::PrintInfo(DebugInterface *module, const std::string &msg) {
