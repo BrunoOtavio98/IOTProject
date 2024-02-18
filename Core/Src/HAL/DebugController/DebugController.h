@@ -10,6 +10,7 @@
 
 #include "DebugInterface.h"
 
+#include <vector>
 #include <memory>
 
 namespace HAL {
@@ -30,15 +31,17 @@ class DebugController {
 	DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication);
 	virtual ~DebugController();
 
-	void PrintDebug(const std::string &msg);
-	void PrintInfo(const std::string &msg);
-	void PrintWarn(const std::string &msg);
-	void PrintError(const std::string &msg);
+	void PrintDebug(DebugInterface *module, const std::string &msg);
+	void PrintInfo(DebugInterface *module, const std::string &msg);
+	void PrintWarn(DebugInterface *module, const std::string &msg);
+	void PrintError(DebugInterface *module, const std::string &msg);
 
  private:
 	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_debug_;
+	std::vector<DebugInterface *> list_of_modules_;
 
-	void PrintMessage(std::string message);
+	bool CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity);
+	void PrintMessage(const std::string &message);
 };
 
 }
