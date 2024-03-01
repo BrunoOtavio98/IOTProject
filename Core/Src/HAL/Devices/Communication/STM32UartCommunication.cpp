@@ -10,20 +10,20 @@
 
 #include "STM32UartCommunication.h"
 
-using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;;
+#include <map>
 
+using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;;
 
 namespace HAL {
 namespace Devices {
 namespace Communication {
 
-STM32UartCommunication *stm32_uart_communication = nullptr;
+std::map<UART_HandleTypeDef*, STM32UartCommunication*> group_of_uarts;
 
 STM32UartCommunication::STM32UartCommunication(UartCommunicationInterface::BaudRates baud_rate, UartCommunicationInterface::UartNumber uart_number) :
 											   UartCommunicationInterface(baud_rate, uart_number),
 											   uart_handle_(std::make_unique<UART_HandleTypeDef>()),
 											   enable_listen_rx_(false){
- stm32_uart_communication = this;
  __HAL_RCC_GPIOA_CLK_ENABLE();
 
   USART_TypeDef *hal_specific_uart_number = BaseUartToHalUartNumber(uart_number);
@@ -35,6 +35,8 @@ STM32UartCommunication::STM32UartCommunication(UartCommunicationInterface::BaudR
   uart_handle_->Init.Mode = UART_MODE_TX_RX;
   uart_handle_->Init.HwFlowCtl = UART_HWCONTROL_NONE;
   uart_handle_->Init.OverSampling = UART_OVERSAMPLING_16;
+
+  group_of_uarts.insert({uart_handle_.get(), this});
   HAL_UART_Init(uart_handle_.get());
 
 }
@@ -50,7 +52,12 @@ bool STM32UartCommunication::WriteData(const std::string &data_to_write) {
 
 bool STM32UartCommunication::ReadDataIT(std::function<void(const std::string&)> callback_read_finish) {
 	callback_read_finish_ = callback_read_finish;
-	return (HAL_UART_Receive_IT(uart_handle_.get(), &stm32_uart_communication->current_byte_, 1) == HAL_OK);
+
+	if(group_of_uarts.find(uart_handle_.get()) != group_of_uarts.end()) {
+		STM32UartCommunication *current_uart = group_of_uarts[uart_handle_.get()];
+		return (HAL_UART_Receive_IT(uart_handle_.get(), &current_uart->current_byte_, 1) == HAL_OK);
+	}
+	return false;
 }
 
 bool STM32UartCommunication::ListenRxIT(std::function<void(const std::string&)> callback_read_finish) {
@@ -80,24 +87,29 @@ USART_TypeDef *STM32UartCommunication::BaseUartToHalUartNumber(UartNumber uart_n
 	}
 }
 
-
 extern "C" {
 	 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
-		 if(stm32_uart_communication->current_byte_ == '\n') {
-			 if(stm32_uart_communication->callback_read_finish_) {
-				 stm32_uart_communication->callback_read_finish_(stm32_uart_communication->rx_buffer_);
-				 stm32_uart_communication->rx_buffer_.clear();
+		 if(group_of_uarts.find(huart) == group_of_uarts.end()) {
+			 return;
+		 }
 
-				 if(stm32_uart_communication->enable_listen_rx_) {
-					HAL_UART_Receive_IT(stm32_uart_communication->uart_handle_.get(), &stm32_uart_communication->current_byte_, 1);
+		 STM32UartCommunication *current_uart = group_of_uarts[huart];
+
+		 if(current_uart->current_byte_ == '\n') {
+			 if(current_uart->callback_read_finish_) {
+				 current_uart->callback_read_finish_(current_uart->rx_buffer_);
+				 current_uart->rx_buffer_.clear();
+
+				 if(current_uart->enable_listen_rx_) {
+					HAL_UART_Receive_IT(current_uart->uart_handle_.get(), &current_uart->current_byte_, 1);
 				 }
 
 				 return;
 			 }
 		 }
-		stm32_uart_communication->rx_buffer_ += static_cast<char>(stm32_uart_communication->current_byte_);
-		HAL_UART_Receive_IT(stm32_uart_communication->uart_handle_.get(), &stm32_uart_communication->current_byte_, 1);
+		 current_uart->rx_buffer_ += static_cast<char>(current_uart->current_byte_);
+		HAL_UART_Receive_IT(current_uart->uart_handle_.get(), &current_uart->current_byte_, 1);
 	}
 }
 
@@ -110,8 +122,36 @@ extern "C" {
 extern "C" {
 	void UART4_IRQHandler(void)
 	{
-		HAL_UART_IRQHandler(stm32_uart_communication->uart_handle_.get());
+		STM32UartCommunication *current_uart = nullptr;
+		for(auto &uart : group_of_uarts) {
+			if(uart.first->Instance == UART4) {
+				current_uart = uart.second;
+			}
+		}
+
+		if(current_uart == nullptr) {
+			return;
+		}
+
+		HAL_UART_IRQHandler(current_uart->uart_handle_.get());
 	}
+
+	void UART5_IRQHandler(void) {
+
+		STM32UartCommunication *current_uart = nullptr;
+		for(auto &uart : group_of_uarts) {
+			if(uart.first->Instance == UART5) {
+				current_uart = uart.second;
+			}
+		}
+
+		if(current_uart == nullptr) {
+			return;
+		}
+
+		HAL_UART_IRQHandler(current_uart->uart_handle_.get());
+	}
+
 }
 
 }
