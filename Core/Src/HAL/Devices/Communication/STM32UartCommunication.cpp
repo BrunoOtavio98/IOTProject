@@ -24,8 +24,7 @@ STM32UartCommunication::STM32UartCommunication(UartCommunicationInterface::BaudR
 											   UartCommunicationInterface(baud_rate, uart_number),
 											   uart_handle_(std::make_unique<UART_HandleTypeDef>()),
 											   enable_listen_rx_(false){
- __HAL_RCC_GPIOA_CLK_ENABLE();
-
+  EnableGPIOClk(uart_number);
   USART_TypeDef *hal_specific_uart_number = BaseUartToHalUartNumber(uart_number);
   uart_handle_->Instance = hal_specific_uart_number;
   uart_handle_->Init.BaudRate = static_cast<int>(baud_rate);
@@ -82,10 +81,41 @@ USART_TypeDef *STM32UartCommunication::BaseUartToHalUartNumber(UartNumber uart_n
 			return UART4;
 		case UartNumber::UART_5:
 			return UART5;
+		case UartNumber::UART_6:
+			return USART6;
 		default:
 			return UART4;
 	}
 }
+
+void STM32UartCommunication::EnableGPIOClk(UartCommunicationInterface::UartNumber uart_number) {
+
+	switch (uart_number) {
+		case UartNumber::UART_1:
+			 __HAL_RCC_GPIOA_CLK_ENABLE();
+			break;
+		case UartNumber::UART_2:
+			 __HAL_RCC_GPIOA_CLK_ENABLE();
+			break;
+		case UartNumber::UART_3:
+			 __HAL_RCC_GPIOB_CLK_ENABLE();
+			break;
+		case UartNumber::UART_4:
+			 __HAL_RCC_GPIOA_CLK_ENABLE();
+			break;
+		case UartNumber::UART_5:
+			 __HAL_RCC_GPIOC_CLK_ENABLE();
+			 __HAL_RCC_GPIOD_CLK_ENABLE();
+			break;
+		case UartNumber::UART_6:
+			 __HAL_RCC_GPIOG_CLK_ENABLE();
+			break;
+		default:
+			break;
+	}
+	return;
+}
+
 
 extern "C" {
 	 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
