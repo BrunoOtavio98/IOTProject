@@ -43,6 +43,7 @@ public:
 private:
 	void UART4_IRQHandler();
 	void UART_IRQ();
+	void EnableGPIOClk(UartCommunicationInterface::UartNumber uart_number);
 	USART_TypeDef *BaseUartToHalUartNumber(UartNumber uart_number);
 };
 
