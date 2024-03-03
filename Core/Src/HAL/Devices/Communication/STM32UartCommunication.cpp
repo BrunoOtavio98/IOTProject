@@ -37,7 +37,6 @@ STM32UartCommunication::STM32UartCommunication(UartCommunicationInterface::BaudR
 
   group_of_uarts.insert({uart_handle_.get(), this});
   HAL_UART_Init(uart_handle_.get());
-
 }
 
 STM32UartCommunication::~STM32UartCommunication() {
@@ -116,7 +115,6 @@ void STM32UartCommunication::EnableGPIOClk(UartCommunicationInterface::UartNumbe
 	return;
 }
 
-
 extern "C" {
 	 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
@@ -126,7 +124,7 @@ extern "C" {
 
 		 STM32UartCommunication *current_uart = group_of_uarts[huart];
 
-		 if(current_uart->current_byte_ == '\n') {
+		 if(current_uart->current_byte_ == '\n' || current_uart->current_byte_ == '\r') {
 			 if(current_uart->callback_read_finish_) {
 				 current_uart->callback_read_finish_(current_uart->rx_buffer_);
 				 current_uart->rx_buffer_.clear();
@@ -138,7 +136,7 @@ extern "C" {
 				 return;
 			 }
 		 }
-		 current_uart->rx_buffer_ += static_cast<char>(current_uart->current_byte_);
+		current_uart->rx_buffer_ += static_cast<char>(current_uart->current_byte_);
 		HAL_UART_Receive_IT(current_uart->uart_handle_.get(), &current_uart->current_byte_, 1);
 	}
 }
@@ -181,7 +179,6 @@ extern "C" {
 
 		HAL_UART_IRQHandler(current_uart->uart_handle_.get());
 	}
-
 }
 
 }
