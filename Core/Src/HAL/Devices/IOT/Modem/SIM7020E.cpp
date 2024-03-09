@@ -14,7 +14,9 @@ namespace Devices {
 namespace IOT {
 namespace Modem {
 
-SIM7020Modem::SIM7020Modem(const std::shared_ptr<UartCommunicationInterface> &uart_communicatio) : ModemInterface(uart_communicatio) {
+SIM7020Modem::SIM7020Modem(const std::shared_ptr<UartCommunicationInterface> &uart_communication, 
+                           const std::shared_ptr<HAL::DebugController::DebugController> &debug_controller) :
+                           ModemInterface(uart_communication, debug_controller) {
 
 }
 

@@ -105,12 +105,14 @@ public:
 		std::function<void(const std::string&)> receive_callback;
 	};
 
-	ModemInterface(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communication);
+	ModemInterface(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communication,
+				   const std::shared_ptr<HAL::DebugController::DebugController> debug_controler);
     virtual ~ModemInterface();
     void RegisterCommand(const ATCommands &at_command, const ATCommandConfiguration &command_configuration);
     bool SendCommand(const AtCommandTypes &command_type, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
     void ReceiveCommandCallBack(const std::string &received_message);
     std::string EnumCommandToString(const ATCommands &command);
+    void ForwardDebugUartMessage(const std::string &msg);
 
 private:
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication_;

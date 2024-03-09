@@ -17,7 +17,8 @@ namespace Modem {
 
 class SIM7020Modem : public HAL::Devices::IOT::Interfaces::ModemInterface {
 public:
-	SIM7020Modem(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communicatio);
+	SIM7020Modem(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communication,
+				 const std::shared_ptr<HAL::DebugController::DebugController> &debug_controller);
 	~SIM7020Modem();
 };
 

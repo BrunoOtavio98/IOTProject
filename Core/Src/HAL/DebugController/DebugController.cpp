@@ -14,7 +14,7 @@ namespace HAL {
 namespace DebugController {
 
 DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) : uart_debug_(uart_communication) {
-
+	uart_debug_->ListenRxIT([this](const std::string &msg){DispatchMessage(msg);});
 }
 
 DebugController::~DebugController() {
@@ -96,9 +96,19 @@ std::string DebugController::MessageTypeToStr(const DebugInterface::MessageVerbo
 
 void DebugController::PrintMessage(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module_name, const std::string &message) {
 	std::string str_verbosity = MessageTypeToStr(msg_verbosity);
-
 	uart_debug_->WriteData("(" + str_verbosity + ")" + module_name + ": " + message);
 }
+
+void DebugController::RegisterCallBackToReadMessages(std::function<void(const std::string&)> callback) {
+	callbacks_.push_back(callback);
+}
+
+void DebugController::DispatchMessage(const std::string &message){
+	for(const auto cb: callbacks_) {
+		cb(message);
+	}
+}
+
 
 }
 }

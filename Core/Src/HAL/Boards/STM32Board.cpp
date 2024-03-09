@@ -80,7 +80,7 @@ void STM32Board::ConfigureModem(AvailableModemInterfaces modem_interface) {
 
 	switch (modem_interface) {
 		case AvailableModemInterfaces::SIM_7020E:
-			modem_interface_ = std::make_unique<SIM7020Modem>(modem_uart_communication_);
+			modem_interface_ = std::make_unique<SIM7020Modem>(modem_uart_communication_, debug_controller_);
 			break;
 		default:
 			break;
