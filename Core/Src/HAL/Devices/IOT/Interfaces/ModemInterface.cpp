@@ -25,11 +25,14 @@ static void StaticReceiveCommandCallBackWrapper(void* instance, const std::strin
     static_cast<ModemInterface*>(instance)->ReceiveCommandCallBack(data);
 }
 
-ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface> &uart_communication) :
+ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface> &uart_communication, 
+				   			  const std::shared_ptr<HAL::DebugController::DebugController> debug_controler) :
 							   DebugInterface("Modem"),
-							   uart_communication_(uart_communication) {
+							   uart_communication_(uart_communication),
+							   debug_controller_(debug_controler) {
 	debug_controller_->RegisterModuleToDebug(this);
 	uart_communication_->ListenRxIT(std::bind(&StaticReceiveCommandCallBackWrapper, this, std::placeholders::_1));
+	debug_controller_->RegisterCallBackToReadMessages([this](const std::string &msg){ForwardDebugUartMessage(msg);});
 }
 
 ModemInterface::~ModemInterface(){
@@ -125,6 +128,11 @@ void ModemInterface::SendExecutionCommand(const std::string &command, const std:
 	final_command += parameters_as_single_string;
 	uart_communication_->WriteData(final_command);
 }
+
+void ModemInterface::ForwardDebugUartMessage(const std::string &msg) {
+	uart_communication_->WriteData(msg);
+}
+
 
 std::string ModemInterface::EnumCommandToString(const ATCommands &command) {
 

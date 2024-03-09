@@ -123,7 +123,6 @@ extern "C" {
 		 }
 
 		 STM32UartCommunication *current_uart = group_of_uarts[huart];
-
 		 if(current_uart->current_byte_ == '\n' || current_uart->current_byte_ == '\r') {
 			 if(current_uart->callback_read_finish_) {
 				 current_uart->callback_read_finish_(current_uart->rx_buffer_);
