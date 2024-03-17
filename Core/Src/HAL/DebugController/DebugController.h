@@ -40,14 +40,16 @@ class DebugController {
 	void RegisterModuleToDebug(DebugInterface *module);
 	void RegisterCallBackToReadMessages(std::function<void(const std::string&)> callback);
 	std::string MessageTypeToStr(const DebugInterface::MessageVerbosity &verbosity);
-
- private:
-	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_debug_;
+	
+ protected:
 	std::vector<DebugInterface *> list_of_modules_;
-	std::list<std::function<void(const std::string&)>> callbacks_;
 
 	bool CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity);
 	void PrintMessage(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message);
+ private:
+	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_debug_;
+	std::list<std::function<void(const std::string&)>> callbacks_;
+
 	void DispatchMessage(const std::string &message);
 };
 
