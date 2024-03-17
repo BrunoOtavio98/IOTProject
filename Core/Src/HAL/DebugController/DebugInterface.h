@@ -17,9 +17,9 @@ class DebugInterface {
 public:
   enum MessageVerbosity {
 	DEBUG_MSG = 0,
-	INFO_MSG = 1,
+	ERROR_MSG = 1,
 	WARN_MSG,
-	ERROR_MSG
+	INFO_MSG,
   };
 
  DebugInterface(const std::string module_name);
