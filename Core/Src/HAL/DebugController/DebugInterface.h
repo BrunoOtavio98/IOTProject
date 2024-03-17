@@ -25,9 +25,9 @@ public:
  DebugInterface(const std::string module_name);
  virtual ~DebugInterface();
 
- void ChangeVerbosity(const MessageVerbosity &new_verbosity);
- MessageVerbosity GetCurrentVerbosity();
- std::string GetModuleName();
+virtual void ChangeVerbosity(const MessageVerbosity &new_verbosity);
+virtual MessageVerbosity GetCurrentVerbosity();
+virtual std::string GetModuleName();
 
 private:
  MessageVerbosity current_verbosity_used_;
