@@ -4,11 +4,12 @@ file(GLOB_RECURSE ALL_TEST_FILES "${TEST_DIR}/*.cpp")
 enable_testing()
 
 add_executable(${PROJECT_NAME} ${ALL_TEST_FILES})
-target_include_directories(${PROJECT_NAME} PUBLIC ${TEST_DIR})
+target_include_directories(${PROJECT_NAME} PUBLIC ${TEST_DIR}/unit)
 
 target_link_libraries(${PROJECT_NAME} 
         ${LIB_IOT}
         GTest::gtest_main
+        GTest::gmock_main
 )
 
 include(GoogleTest)
