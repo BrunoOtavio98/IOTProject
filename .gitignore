@@ -1,0 +1,13 @@
+*.elf
+*.o
+*.d
+*.su
+*.mk
+makefile
+*.txt
+*.list
+Drivers*
+*.s
+*.map
+Core/Src
+Core/Inc
