@@ -1,5 +1,5 @@
 #ifndef UART_COMMUNICATION_INTEFACE_H_
-#define UART_COMMUNICATION_INTERFACE_H_
+#define UART_COMMUNICATION_INTEFACE_H_
 
 #include <gmock/gmock.h>
 #include "Devices/Communication/Interfaces/UartCommunicationInterface.h"
@@ -25,4 +25,4 @@ public:
 }
 }
 
-#endif UART_COMMUNICATION_INTERFACE_H_
+#endif
