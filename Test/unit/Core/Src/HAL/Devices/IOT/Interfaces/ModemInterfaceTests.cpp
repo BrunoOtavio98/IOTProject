@@ -75,6 +75,17 @@ TEST_F(ModemInterfaceTests, WriteCommandFormat) {
    modem_.SendCommand(current_cmd_type, current_cmd, list_of_parameters);
 }
 
+TEST_F(ModemInterfaceTests, ExecuteCommandFormat) {
+   ModemInterface::ATCommands current_cmd = ModemInterface::ATCommands::ATI;
+   ModemInterface::AtCommandTypes current_cmd_type = ModemInterface::AtCommandTypes::Execute;
+
+   std::list<std::string> list_of_parameters = {"1", "B", "C", "2"};
+
+   std::string expect_msg_format = "ATI1,B,C,2";
+   EXPECT_CALL(*uart_modem_, WriteData(expect_msg_format));
+    
+   modem_.SendCommand(current_cmd_type, current_cmd, list_of_parameters);
+}
 
 }
 }

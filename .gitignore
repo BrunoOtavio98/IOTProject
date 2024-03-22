@@ -30,3 +30,7 @@ stm32*
 settings.json
 *lock
 *ipch
+.cproject
+.mxproject
+.project
+*settings.xml
