@@ -20,6 +20,8 @@ class ModemInterfaceHelper : public ModemInterface {
     std::shared_ptr<MockDebugController> debug_controller) : ModemInterface(uart_modem_, debug_controller) {
 
     }
+
+    MOCK_METHOD1(MyMockableCallback, void(const std::string &command));
 };
 
 class ModemInterfaceTests : public testing::Test
@@ -85,6 +87,25 @@ TEST_F(ModemInterfaceTests, ExecuteCommandFormat) {
    EXPECT_CALL(*uart_modem_, WriteData(expect_msg_format));
     
    modem_.SendCommand(current_cmd_type, current_cmd, list_of_parameters);
+}
+
+TEST_F(ModemInterfaceTests, TestCallingCallback) {
+   ModemInterface::ATCommands current_cmd = ModemInterface::ATCommands::ATI;
+   ModemInterface::AtCommandTypes current_cmd_type = ModemInterface::AtCommandTypes::Read;
+   ModemInterface::ATCommandConfiguration cmd_config;
+   cmd_config.timeout = 100;
+   cmd_config.receive_callback = [&](const std::string &command) {
+      modem_.MyMockableCallback(command);
+   };
+   std::list<std::string> list_of_parameters;
+
+   modem_.RegisterCommand(current_cmd, cmd_config);
+   modem_.SendCommand(current_cmd_type, current_cmd, list_of_parameters);
+
+   std::string expect_msg_format = "OK";
+   EXPECT_CALL(modem_, MyMockableCallback(expect_msg_format));
+
+   modem_.ReceiveCommandCallBack(expect_msg_format);
 }
 
 }
