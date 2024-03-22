@@ -17,17 +17,17 @@ class DebugInterface {
 public:
   enum MessageVerbosity {
 	DEBUG_MSG = 0,
-	INFO_MSG = 1,
+	ERROR_MSG = 1,
 	WARN_MSG,
-	ERROR_MSG
+	INFO_MSG,
   };
 
  DebugInterface(const std::string module_name);
  virtual ~DebugInterface();
 
- void ChangeVerbosity(const MessageVerbosity &new_verbosity);
- MessageVerbosity GetCurrentVerbosity();
- std::string GetModuleName();
+virtual void ChangeVerbosity(const MessageVerbosity &new_verbosity);
+virtual MessageVerbosity GetCurrentVerbosity();
+virtual std::string GetModuleName();
 
 private:
  MessageVerbosity current_verbosity_used_;

@@ -114,16 +114,17 @@ public:
     std::string EnumCommandToString(const ATCommands &command);
     void ForwardDebugUartMessage(const std::string &msg);
 
+protected:
+    void SendTestCommand(const std::string &command);
+    void SendReadCommand(const std::string &command);
+    void SendWriteCommand(const std::string &command, const std::list<std::string> &parameters);
+    void SendExecutionCommand(const std::string &command, const std::list<std::string> &parameters);
+
 private:
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication_;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
     std::map<ATCommands, ATCommandConfiguration> modem_commands_;
     ATCommands current_command_executed_;
-
-    void SendTestCommand(const std::string &command);
-    void SendReadCommand(const std::string &command);
-    void SendWriteCommand(const std::string &command, const std::list<std::string> &parameters);
-    void SendExecutionCommand(const std::string &command, const std::list<std::string> &parameters);
 };
 
 }
