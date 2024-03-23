@@ -1,0 +1,10 @@
+
+#ifndef SRC_HAL_RTOSWRAPPERS_QUEUEWRAPPER_H_
+#define SRC_HAL_RTOSWRAPPERS_QUEUEWRAPPER_H_
+
+#ifdef FREERTOS
+#include "semphr.h"
+#endif
+
+
+#endif /* SRC_HAL_RTOSWRAPPERS_QUEUEWRAPPER_H_ */
