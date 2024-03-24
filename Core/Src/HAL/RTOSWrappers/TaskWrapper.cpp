@@ -5,7 +5,7 @@ namespace HAL {
 namespace RtosWrappers {
 
 TaskWrapper::TaskWrapper(CallBackType task, const std::string &task_name, uint16_t stack_size, void *const parameters, int priority) 
-                        : task_cb_(task), name_(task_name), stack_size_(stack_size), parameters_(parameters) {
+                        : task_cb_(task), parameters_(parameters), name_(task_name), stack_size_(stack_size) {
 
 }
 
