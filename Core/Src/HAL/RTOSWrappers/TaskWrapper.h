@@ -5,7 +5,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 typedef TaskHandle_t GenericTaskHandle;
-#elif
+#else
 typedef int GenericTaskHandle;
 #endif
 
