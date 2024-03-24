@@ -28,6 +28,7 @@ public:
     }
 
     std::shared_ptr<QueueWrapper> queue_manager_;
+    std::shared_ptr<SemaphoreWrapper> semaphore_manager_;
 };
 }
 }
