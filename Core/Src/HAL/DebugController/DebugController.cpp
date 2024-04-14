@@ -9,16 +9,27 @@
 #include "Devices/Communication/Interfaces/UartCommunicationInterface.h"
 
 #include <algorithm>
+#include <string>
 
 namespace HAL {
 namespace DebugController {
 
-DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) : uart_debug_(uart_communication) {
+DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) :  
+ TaskWrapper(std::string("DebugTask"), 500, nullptr, 1),
+ uart_debug_(uart_communication) {
 	uart_debug_->ListenRxIT([this](const std::string &msg){DispatchMessage(msg);});
+
 }
 
 DebugController::~DebugController() {
+}
 
+void DebugController::Task(void *params) {
+
+	while(1) {
+
+		for(int i = 0;i < 100000; i++);
+	}	
 }
 
 void DebugController::RegisterModuleToDebug(DebugInterface *module) {
@@ -110,7 +121,6 @@ void DebugController::DispatchMessage(const std::string &message){
 		cb(message);
 	}
 }
-
 
 }
 }

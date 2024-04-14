@@ -10,6 +10,8 @@
 
 #include "DebugInterface.h"
 
+#include "RTOSWrappers/TaskWrapper.h"
+
 #include <vector>
 #include <memory>
 #include <functional>
@@ -28,7 +30,7 @@ class UartCommunicationInterface;
 namespace HAL {
 namespace DebugController {
 
-class DebugController {
+class DebugController : public HAL::RtosWrappers::TaskWrapper {
  public:
 	DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication);
 	virtual ~DebugController();
@@ -42,6 +44,7 @@ class DebugController {
 	
  protected:
 	std::vector<DebugInterface *> list_of_modules_;
+	void Task(void *params) override;
 
 	bool CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity);
  private:
