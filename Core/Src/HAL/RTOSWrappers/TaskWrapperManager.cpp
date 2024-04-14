@@ -42,12 +42,6 @@ bool TaskWrapperManager::DeleteTask(TaskWrapper &task) {
 	return true;
 }
 
-void TaskWrapperManager::TaskDelay(TaskWrapper &task, int delay_ms) {
-#ifdef FREERTOS
-    const TickType_t xDelay = delay_ms / portTICK_PERIOD_MS;
-    vTaskDelay( xDelay );
-#endif
-}
 
 }
 }

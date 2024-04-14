@@ -25,6 +25,13 @@ int TaskWrapper::GetPriority() {
     return priority_;
 }
 
+void TaskWrapper::TaskDelay(int delay_ms) {
+#ifdef FREERTOS
+    const TickType_t xDelay = delay_ms / portTICK_PERIOD_MS;
+    vTaskDelay( xDelay );
+#endif
+}
+
 void TaskWrapper::ToStaticTask( void *this_task_wrapper) {
 
 	auto task_wrapper = static_cast<TaskWrapper *>(this_task_wrapper);

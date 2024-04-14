@@ -31,6 +31,7 @@ public:
     uint16_t GetStackSize();
     int GetPriority();
     void RegisterCallback(CallBackType task);
+    void TaskDelay(int delay_ms);
     static void ToStaticTask( void *this_task_wrapper);
 
 private:

@@ -25,7 +25,6 @@ public:
 
    bool CreateTask(TaskWrapper &task);
    bool DeleteTask(TaskWrapper &task);
-   void TaskDelay(TaskWrapper &task, int delay_ms);
 };
 
 }
