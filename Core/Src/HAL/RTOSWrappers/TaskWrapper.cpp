@@ -4,8 +4,8 @@
 namespace HAL {
 namespace RtosWrappers {
 
-TaskWrapper::TaskWrapper(CallBackType task, const std::string &task_name, uint16_t stack_size, void *const parameters, int priority) 
-                        : task_cb_(task), parameters_(parameters), name_(task_name), stack_size_(stack_size) {
+TaskWrapper::TaskWrapper(const std::string &task_name, uint16_t stack_size, void *const parameters, int priority)
+                        : parameters_(parameters), name_(task_name), stack_size_(stack_size), priority_(priority) {
 
 }
 
@@ -23,6 +23,15 @@ uint16_t TaskWrapper::GetStackSize() {
 
 int TaskWrapper::GetPriority() {
     return priority_;
+}
+
+void TaskWrapper::ToStaticTask( void *this_task_wrapper) {
+
+	auto task_wrapper = static_cast<TaskWrapper *>(this_task_wrapper);
+
+	if(task_wrapper != nullptr) {
+		task_wrapper->Task(task_wrapper->parameters_);
+	}
 }
 
 }
