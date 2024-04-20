@@ -9,24 +9,30 @@ typedef TaskHandle_t GenericTaskHandle;
 typedef int GenericTaskHandle;
 #endif
 
-#include <string>
+typedef void (*CallBackType)(void*);
 
-typedef void (*CallBackType)(void *);
+#include <string>
 
 namespace HAL {
 namespace RtosWrappers {
 class TaskWrapper
 {
 public:
-    TaskWrapper(CallBackType task, const std::string &task_name, uint16_t stack_size, void *const parameters, int priority);
+    TaskWrapper(const std::string &task_name, uint16_t stack_size, void *const parameters, int priority);
     ~TaskWrapper();
     GenericTaskHandle task_handle_;
-    CallBackType task_cb_;
+    virtual void Task(void *params) {
+
+    }
+
     void *const parameters_;
 
     std::string GetTaskname();
     uint16_t GetStackSize();
     int GetPriority();
+    void RegisterCallback(CallBackType task);
+    void TaskDelay(int delay_ms);
+    static void ToStaticTask( void *this_task_wrapper);
 
 private:
     std::string name_;

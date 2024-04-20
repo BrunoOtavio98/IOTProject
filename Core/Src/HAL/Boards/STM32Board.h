@@ -26,7 +26,6 @@ private:
 	void ConfigureModem(AvailableModemInterfaces modem_interface);
 };
 
-
 }
 }
 
