@@ -27,13 +27,15 @@ namespace HAL {
 namespace Boards {
 
 STM32Board::STM32Board() {
-	modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4);
-	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_5);
+	modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_9600, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
+	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_9600, UartCommunicationInterface::UartNumber::UART_5, "debug_uart_task");
 	debug_controller_ = std::make_shared<DebugController::DebugController>(debug_uart_communication_);
 
 	HAL_Init();
-  rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
-  rtos_task_manager_->CreateTask(*debug_controller_);
+	rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
+	rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
+	rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(debug_uart_communication_));
+	rtos_task_manager_->CreateTask(*debug_controller_);
 }
 
 STM32Board::~STM32Board() {
@@ -87,6 +89,7 @@ void STM32Board::ConfigureModem(AvailableModemInterfaces modem_interface) {
 	switch (modem_interface) {
 		case AvailableModemInterfaces::SIM_7020E:
 			modem_interface_ = std::make_unique<SIM7020Modem>(modem_uart_communication_, debug_controller_);
+      rtos_task_manager_->CreateTask(*modem_interface_);
 			break;
 		default:
 			break;

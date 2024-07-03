@@ -10,6 +10,7 @@
 #include "RTOSWrappers/QueueWrapper.h"
 
 #include <algorithm>
+#include <cstring>
 #include <string>
 #include <string.h>
 
@@ -21,8 +22,9 @@ namespace DebugController {
 DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) :  
  TaskWrapper(std::string("DebugTask"), 500, nullptr, 1),
  uart_debug_(uart_communication),
- queue_manager_(std::make_shared<QueueWrapper>()) {
-	uart_debug_->ListenRxIT([this](const std::string &msg){DispatchMessage(msg);});
+ queue_manager_(std::make_shared<QueueWrapper>()),
+ rx_buffer_pos_(0) {
+	uart_debug_->ListenRxIT([this](const uint8_t *data, uint16_t size){CallbackUartMsgReceived(data, size);});
 
 	debug_msgs_queue_ = queue_manager_->CreateQueue(10, sizeof(DebugData));
 }
@@ -39,8 +41,34 @@ void DebugController::Task(void *params) {
 			PrintMessage(current_msg_to_log->msg_verbosity, current_msg_to_log->module_name, current_msg_to_log->msg);
 		}
 
+		if(CanProcessMessage()) {
+			std::string str(reinterpret_cast<char*>(uart_buffer_receive_), rx_buffer_pos_);
+			rx_buffer_pos_ = 0;
+			DispatchMessage(str);
+		}
 		TaskDelay(200);
 	}	
+}
+
+void DebugController::CallbackUartMsgReceived(const uint8_t *data, uint16_t size) {
+
+	if(data == nullptr) {
+		return;
+	}
+
+	if(size >= (kBufferSize - rx_buffer_pos_) ) {
+		size = ((kBufferSize - rx_buffer_pos_) - 1);
+	}
+
+	is_callback_executing_ = true;
+	std::memcpy(uart_buffer_receive_ + rx_buffer_pos_, data, size);
+	rx_buffer_pos_ += size;
+	is_callback_executing_ = false;
+}
+
+bool DebugController::CanProcessMessage() {
+	return (((uart_buffer_receive_[rx_buffer_pos_ - 1] == '\n' || uart_buffer_receive_[rx_buffer_pos_ - 1] == '\r') ) 
+			  && is_callback_executing_ == false);
 }
 
 void DebugController::RegisterModuleToDebug(DebugInterface *module) {
@@ -95,7 +123,7 @@ void DebugController::InsertMsgIntoQueue(const DebugInterface::MessageVerbosity 
 		queue_manager_->QueueSendFromISR(debug_msgs_queue_, (void *)&debug_data, 100);
 	}
 	else {
-	queue_manager_->QueueSend(debug_msgs_queue_, (void *)&debug_data, 100);
+		queue_manager_->QueueSend(debug_msgs_queue_, (void *)&debug_data, 100);
 	}
 }
 
