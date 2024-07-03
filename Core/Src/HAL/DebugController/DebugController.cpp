@@ -49,41 +49,40 @@ void DebugController::RegisterModuleToDebug(DebugInterface *module) {
 	}
 }
 
-
-void DebugController::PrintDebug(DebugInterface *module, const std::string &msg) {
+void DebugController::PrintDebug(DebugInterface *module, const std::string &msg, bool from_isr) {
 
 	if(!CheckIfModuleCanLog(module, DebugInterface::MessageVerbosity::DEBUG_MSG)) {
 		return;
 	}
 	
-	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::DEBUG_MSG, module->GetModuleName(), msg);
+	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::DEBUG_MSG, module->GetModuleName(), msg, from_isr);
 }
 
-void DebugController::PrintInfo(DebugInterface *module, const std::string &msg) {
+void DebugController::PrintInfo(DebugInterface *module, const std::string &msg, bool from_isr) {
 	if(!CheckIfModuleCanLog(module, DebugInterface::MessageVerbosity::INFO_MSG)) {
 		return;
 	}
 
-	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::INFO_MSG, module->GetModuleName(), msg);
+	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::INFO_MSG, module->GetModuleName(), msg, from_isr);
 }
 
-void DebugController::PrintWarn(DebugInterface *module, const std::string &msg) {
+void DebugController::PrintWarn(DebugInterface *module, const std::string &msg, bool from_isr) {
 	if(!CheckIfModuleCanLog(module, DebugInterface::MessageVerbosity::WARN_MSG)) {
 		return;
 	}
 
-	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::WARN_MSG, module->GetModuleName(), msg);
+	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::WARN_MSG, module->GetModuleName(), msg, from_isr);
 }
 
-void DebugController::PrintError(DebugInterface *module, const std::string &msg) {
+void DebugController::PrintError(DebugInterface *module, const std::string &msg, bool from_isr) {
 	if(!CheckIfModuleCanLog(module, DebugInterface::MessageVerbosity::ERROR_MSG)) {
 		return;
 	}
 
-	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::ERROR_MSG, module->GetModuleName(), msg);
+	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::ERROR_MSG, module->GetModuleName(), msg, from_isr);
 }
 
-void DebugController::InsertMsgIntoQueue(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message) {
+void DebugController::InsertMsgIntoQueue(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message, bool from_isr) {
 	
 	DebugData *debug_data;
 	strncpy(DataToLog.module_name, module.c_str(), sizeof(DataToLog.module_name));
@@ -91,7 +90,13 @@ void DebugController::InsertMsgIntoQueue(const DebugInterface::MessageVerbosity 
 	DataToLog.msg_verbosity = msg_verbosity;
 
 	debug_data = &DataToLog;
+
+	if(from_isr) {
+		queue_manager_->QueueSendFromISR(debug_msgs_queue_, (void *)&debug_data, 100);
+	}
+	else {
 	queue_manager_->QueueSend(debug_msgs_queue_, (void *)&debug_data, 100);
+	}
 }
 
 
@@ -132,7 +137,7 @@ std::string DebugController::MessageTypeToStr(const DebugInterface::MessageVerbo
 
 void DebugController::PrintMessage(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module_name, const std::string &message) {
 	std::string str_verbosity = MessageTypeToStr(msg_verbosity);
-	uart_debug_->WriteData("(" + str_verbosity + ")" + module_name + ": " + message);
+	uart_debug_->WriteData("[" + str_verbosity + "]" + module_name + ": " + message);
 }
 
 void DebugController::RegisterCallBackToReadMessages(std::function<void(const std::string&)> callback) {

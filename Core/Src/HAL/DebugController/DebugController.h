@@ -41,10 +41,10 @@ class DebugController : public HAL::RtosWrappers::TaskWrapper {
 	DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication);
 	virtual ~DebugController();
 
-	virtual void PrintDebug(DebugInterface *module, const std::string &msg);
-	virtual void PrintInfo(DebugInterface *module, const std::string &msg);
-	virtual void PrintWarn(DebugInterface *module, const std::string &msg);
-	virtual void PrintError(DebugInterface *module, const std::string &msg);
+	virtual void PrintDebug(DebugInterface *module, const std::string &msg, bool from_isr);
+	virtual void PrintInfo(DebugInterface *module, const std::string &msg, bool from_isr);
+	virtual void PrintWarn(DebugInterface *module, const std::string &msg, bool from_isr);
+	virtual void PrintError(DebugInterface *module, const std::string &msg, bool from_isr);
 	virtual void RegisterModuleToDebug(DebugInterface *module);
 	virtual void RegisterCallBackToReadMessages(std::function<void(const std::string&)> callback);
 	

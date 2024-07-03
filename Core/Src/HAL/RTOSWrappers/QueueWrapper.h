@@ -29,7 +29,9 @@ public:
     int QueueSpacesAvailable(GenericQueueHandle queue);
     void QueueDelete(GenericQueueHandle queue);
     bool QueueSend(GenericQueueHandle queue, const void *item, int ms_to_wait);
+    bool QueueSendFromISR(GenericQueueHandle queue, const void *item, int ms_to_wait);
     bool QueueReceive(GenericQueueHandle queue, void *buffer, int ms_to_wait);
+    bool QueueReceiveFromISR(GenericQueueHandle queue, void *buffer, int ms_to_wait);
 };
 
 }
