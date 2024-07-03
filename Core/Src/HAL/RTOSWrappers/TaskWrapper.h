@@ -21,10 +21,7 @@ public:
     TaskWrapper(const std::string &task_name, uint16_t stack_size, void *const parameters, int priority);
     ~TaskWrapper();
     GenericTaskHandle task_handle_;
-    virtual void Task(void *params) {
-
-    }
-
+ 
     void *const parameters_;
 
     std::string GetTaskname();
@@ -33,6 +30,11 @@ public:
     void RegisterCallback(CallBackType task);
     void TaskDelay(int delay_ms);
     static void ToStaticTask( void *this_task_wrapper);
+
+protected:
+    virtual void Task(void *params) {
+
+    }
 
 private:
     std::string name_;

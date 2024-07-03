@@ -45,9 +45,23 @@ bool QueueWrapper::QueueSend(GenericQueueHandle queue, const void *item, int ms_
 	return false;
 }
 
+bool QueueWrapper::QueueSendFromISR(GenericQueueHandle queue, const void *item, int ms_to_wait) {
+#ifdef FREERTOS
+	return xQueueSendFromISR(queue, item, pdFALSE);
+#endif
+	return false;
+}	
+
 bool QueueWrapper::QueueReceive(GenericQueueHandle queue, void *buffer, int ms_to_wait) {
 #ifdef FREERTOS
 	return (xQueueReceive(queue, buffer, pdMS_TO_TICKS(ms_to_wait)) == pdTRUE);
+#endif
+	return false;
+}
+
+bool QueueWrapper::QueueReceiveFromISR(GenericQueueHandle queue, void *buffer, int ms_to_wait) {
+#ifdef FREERTOS
+	return (xQueueReceiveFromISR(queue, buffer, pdFALSE));
 #endif
 	return false;
 }
