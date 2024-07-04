@@ -10,9 +10,11 @@
 
 #include "STM32UartCommunication.h"
 
+#include <cstring>
 #include <map>
 
 using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;;
+using HAL::RtosWrappers::TaskWrapper;
 
 namespace HAL {
 namespace Devices {
@@ -20,9 +22,11 @@ namespace Communication {
 
 std::map<UART_HandleTypeDef*, STM32UartCommunication*> group_of_uarts;
 
-STM32UartCommunication::STM32UartCommunication(UartCommunicationInterface::BaudRates baud_rate, UartCommunicationInterface::UartNumber uart_number) :
+STM32UartCommunication::STM32UartCommunication(UartCommunicationInterface::BaudRates baud_rate, UartCommunicationInterface::UartNumber uart_number, const std::string &task_name) :
 											   UartCommunicationInterface(baud_rate, uart_number),
+											   TaskWrapper(task_name, 500, nullptr, 0),
 											   uart_handle_(std::make_unique<UART_HandleTypeDef>()),
+											   rx_buffer_pos_(0),
 											   enable_listen_rx_(false){
   EnableGPIOClk(uart_number);
   USART_TypeDef *hal_specific_uart_number = BaseUartToHalUartNumber(uart_number);
@@ -43,22 +47,36 @@ STM32UartCommunication::~STM32UartCommunication() {
 
 }
 
+void STM32UartCommunication::Task(void *params) {
+
+	while(1) {
+		
+		if(callback_read_finish_ && rx_buffer_pos_ && !isr_executing_) {
+			uint8_t temp_data[kRxBufferSize];
+			std::memcpy(temp_data, rx_buffer_, rx_buffer_pos_);
+			callback_read_finish_(temp_data, rx_buffer_pos_);
+			rx_buffer_pos_ = 0;
+		}
+		TaskDelay(300);
+	}
+}
+
 bool STM32UartCommunication::WriteData(const std::string &data_to_write) {
 	const uint8_t *data = reinterpret_cast<const uint8_t *>(&data_to_write[0]);
 	return (HAL_UART_Transmit(uart_handle_.get(), data, data_to_write.size(), kUartTimeoutTxCommunication) == HAL_OK);
 }
 
-bool STM32UartCommunication::ReadDataIT(std::function<void(const std::string&)> callback_read_finish) {
+bool STM32UartCommunication::ReadDataIT(std::function<void(const uint8_t *data, uint16_t data_size)> callback_read_finish) {
 	callback_read_finish_ = callback_read_finish;
 
 	if(group_of_uarts.find(uart_handle_.get()) != group_of_uarts.end()) {
 		STM32UartCommunication *current_uart = group_of_uarts[uart_handle_.get()];
-		return (HAL_UART_Receive_IT(uart_handle_.get(), &current_uart->current_byte_, 1) == HAL_OK);
+		return (HAL_UARTEx_ReceiveToIdle_IT(current_uart->uart_handle_.get(), current_uart->current_chunk_, current_uart->kChunkSize) == HAL_OK);
 	}
 	return false;
 }
 
-bool STM32UartCommunication::ListenRxIT(std::function<void(const std::string&)> callback_read_finish) {
+bool STM32UartCommunication::ListenRxIT(std::function<void(const uint8_t *data, uint16_t data_size)> callback_read_finish) {
 	enable_listen_rx_ = true;
 	return ReadDataIT(callback_read_finish);
 }
@@ -116,33 +134,50 @@ void STM32UartCommunication::EnableGPIOClk(UartCommunicationInterface::UartNumbe
 }
 
 extern "C" {
-	 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
-		 if(group_of_uarts.find(huart) == group_of_uarts.end()) {
+	void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
+		 auto it = group_of_uarts.find(huart);
+		 if(it == group_of_uarts.end()) {
 			 return;
 		 }
 
-		 STM32UartCommunication *current_uart = group_of_uarts[huart];
-		 if(current_uart->current_byte_ == '\n' || current_uart->current_byte_ == '\r') {
-			 if(current_uart->callback_read_finish_) {
-				 current_uart->callback_read_finish_(current_uart->rx_buffer_);
-				 current_uart->rx_buffer_.clear();
+		STM32UartCommunication *current_uart = it->second;
 
-				 if(current_uart->enable_listen_rx_) {
-					HAL_UART_Receive_IT(current_uart->uart_handle_.get(), &current_uart->current_byte_, 1);
-				 }
+		if(Size >= (current_uart->kRxBufferSize - current_uart->rx_buffer_pos_)) {
+			Size = (current_uart->kRxBufferSize - current_uart->rx_buffer_pos_) - 1;
+		}
+		current_uart->isr_executing_ = true;
+		std::memcpy(current_uart->rx_buffer_ + current_uart->rx_buffer_pos_, current_uart->current_chunk_, Size);
+		current_uart->rx_buffer_pos_ += Size;
 
-				 return;
-			 }
-		 }
-		current_uart->rx_buffer_ += static_cast<char>(current_uart->current_byte_);
-		HAL_UART_Receive_IT(current_uart->uart_handle_.get(), &current_uart->current_byte_, 1);
+		current_uart->isr_executing_ = false;
+		if(current_uart->enable_listen_rx_) {
+			HAL_UARTEx_ReceiveToIdle_IT(current_uart->uart_handle_.get(), current_uart->current_chunk_, current_uart->kChunkSize);
+		}
 	}
 }
 
 extern "C" {
 	void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
-		//TODO
+		 auto it = group_of_uarts.find(huart);
+		 if(it == group_of_uarts.end()) {
+			return;
+		 }
+
+		STM32UartCommunication *current_uart = it->second;
+		switch (huart->ErrorCode)
+		{
+		case HAL_UART_ERROR_ORE:
+			/* code */
+			__HAL_UART_CLEAR_FLAG(huart, UART_FLAG_ORE);
+			if(current_uart->enable_listen_rx_) {
+				HAL_UARTEx_ReceiveToIdle_IT(current_uart->uart_handle_.get(), current_uart->current_chunk_, current_uart->kChunkSize);
+			}
+			break;
+		
+		default:
+			break;
+		}
 	}
 }
 

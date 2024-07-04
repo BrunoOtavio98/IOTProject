@@ -25,7 +25,7 @@ public:
 		BAUD_19200 = 19200,
 		BAUD_38400 = 38400,
 		BAUD_57600 = 57600,
-		BAUD_115200 = 115200
+		BAUD_115200 = 115200,
 	};
 
 	enum UartNumber {
@@ -45,8 +45,8 @@ UartCommunicationInterface(BaudRates baud_rate, UartNumber uart_number) {
 }
 
 virtual bool WriteData(const std::string &data_to_write) = 0;
-virtual bool ReadDataIT(std::function<void(const std::string&)> callback_read_finish) = 0;
-virtual bool ListenRxIT(std::function<void(const std::string&)> callback_read_finish) {
+virtual bool ReadDataIT(std::function<void(const uint8_t *, uint16_t)> callback_read_finish) = 0;
+virtual bool ListenRxIT(std::function<void(const uint8_t *, uint16_t)> callback_read_finish) {
 	return true;
 }
 virtual void DisableListenRxIt() {
