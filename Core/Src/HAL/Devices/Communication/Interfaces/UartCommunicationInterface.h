@@ -25,7 +25,7 @@ public:
 		BAUD_19200 = 19200,
 		BAUD_38400 = 38400,
 		BAUD_57600 = 57600,
-		BAUD_115200 = 115200
+		BAUD_115200 = 115200,
 	};
 
 	enum UartNumber {

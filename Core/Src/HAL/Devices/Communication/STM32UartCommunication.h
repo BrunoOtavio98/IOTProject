@@ -23,6 +23,7 @@ class STM32UartCommunication : public HAL::Devices::Communication::Interfaces::U
 							   public HAL::RtosWrappers::TaskWrapper {
 public:
 	static const int kRxBufferSize = 1024;
+	static const int kChunkSize = 256;
 	const int kUartTimeoutTxCommunication = 150;
 	const int kUartTimeoutRxCommunication = 10000;
 
@@ -38,7 +39,7 @@ public:
 	void Task(void *params) override;
 
 	std::unique_ptr<UART_HandleTypeDef> uart_handle_;
-	uint8_t current_byte_;
+	uint8_t current_chunk_[kChunkSize];
 	uint8_t rx_buffer_[kRxBufferSize];
 	uint16_t rx_buffer_pos_;
 	bool enable_listen_rx_;
