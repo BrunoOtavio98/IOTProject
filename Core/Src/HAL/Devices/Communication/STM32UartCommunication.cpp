@@ -157,30 +157,27 @@ extern "C" {
 	}
 }
 
-// extern "C" {
-// 	 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-// 		 auto it = group_of_uarts.find(huart);
-// 		 if(it == group_of_uarts.end()) {
-// 			 return;
-// 		 }
-
-// 		STM32UartCommunication *current_uart = it->second;
-
-// 		if(current_uart->rx_buffer_pos_ >= current_uart->kRxBufferSize) {
-// 			current_uart->rx_buffer_pos_ = 0;
-// 		}
-// 		current_uart->isr_executing_ = true;
-// 		current_uart->rx_buffer_[current_uart->rx_buffer_pos_++] = current_uart->current_byte_;
-// 		current_uart->isr_executing_ = false;
-// 		if(current_uart->enable_listen_rx_) {
-// 			HAL_UART_Receive_IT(current_uart->uart_handle_.get(), &current_uart->current_byte_, 1);
-// 		}
-// 	}
-// }
-
 extern "C" {
 	void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
-		//TODO
+		 auto it = group_of_uarts.find(huart);
+		 if(it == group_of_uarts.end()) {
+			return;
+		 }
+
+		STM32UartCommunication *current_uart = it->second;
+		switch (huart->ErrorCode)
+		{
+		case HAL_UART_ERROR_ORE:
+			/* code */
+			__HAL_UART_CLEAR_FLAG(huart, UART_FLAG_ORE);
+			if(current_uart->enable_listen_rx_) {
+				HAL_UARTEx_ReceiveToIdle_IT(current_uart->uart_handle_.get(), current_uart->current_chunk_, current_uart->kChunkSize);
+			}
+			break;
+		
+		default:
+			break;
+		}
 	}
 }
 
