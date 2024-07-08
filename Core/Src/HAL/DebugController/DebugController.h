@@ -69,7 +69,7 @@ class DebugController : public HAL::RtosWrappers::TaskWrapper {
 	std::string MessageTypeToStr(const DebugInterface::MessageVerbosity &verbosity);
 	void PrintMessage(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message);
 	void DispatchMessage(const std::string &message);
-	void InsertMsgIntoQueue(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message);
+	void InsertMsgIntoQueue(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message, bool from_isr);
 };
 
 }

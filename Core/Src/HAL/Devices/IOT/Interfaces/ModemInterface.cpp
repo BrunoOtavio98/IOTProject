@@ -72,7 +72,7 @@ bool ModemInterface::SendCommand(const AtCommandTypes &command_type, const ATCom
 }
 
 void ModemInterface::ReceiveCommandCallBack(const std::string &received_message) {
-	debug_controller_->PrintDebug(this, received_message);
+	debug_controller_->PrintDebug(this, received_message, true);
 	auto it = modem_commands_.find(current_command_executed_);
 
 	if(it != modem_commands_.end()) {
