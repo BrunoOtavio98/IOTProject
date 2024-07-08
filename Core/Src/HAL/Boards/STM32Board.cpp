@@ -12,6 +12,9 @@
 #include "Devices/IOT/Interfaces/ModemInterface.h"
 #include "Devices/IOT/Modem/SIM7020E.h"
 #include "DebugController/DebugController.h"
+#include "Storage/StorageInterface.h"
+#include "Storage/STM32SD.h"
+
 #include "RTOSWrappers/TaskWrapperManager.h"
 
 #include "stm32f4xx_hal.h"
@@ -22,6 +25,7 @@ using HAL::Devices::IOT::Interfaces::ModemInterface;
 using HAL::Devices::IOT::Modem::SIM7020Modem;
 using HAL::DebugController::DebugController;
 using HAL::RtosWrappers::TaskWrapperManager;
+using HAL::Storage::STM32SD;
 
 namespace HAL {
 namespace Boards {
@@ -30,10 +34,12 @@ STM32Board::STM32Board() {
 	modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4);
 	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_1);
 	debug_controller_ = std::make_shared<DebugController::DebugController>(debug_uart_communication_);
+	storage_interface_ = std::make_shared<Storage::STM32SD>();
+	storage_interface_->InitStorage();
 
 	HAL_Init();
-  rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
-  rtos_task_manager_->CreateTask(*debug_controller_);
+	rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
+	rtos_task_manager_->CreateTask(*debug_controller_);
 }
 
 STM32Board::~STM32Board() {
