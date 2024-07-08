@@ -12,6 +12,9 @@
 #include "Devices/IOT/Interfaces/ModemInterface.h"
 #include "Devices/IOT/Modem/SIM7020E.h"
 #include "DebugController/DebugController.h"
+#include "Storage/StorageInterface.h"
+#include "Storage/STM32SD.h"
+
 #include "RTOSWrappers/TaskWrapperManager.h"
 #include "DebugController/DebugInterface.h"
 #include "Devices/Position/GNSSInterface.h"
@@ -27,6 +30,7 @@ using HAL::DebugController::DebugController;
 using HAL::DebugController::DebugInterface;
 using HAL::RtosWrappers::TaskWrapperManager;
 using HAL::Devices::Position::GNSSInterface;
+using HAL::Storage::STM32SD;
 
 namespace HAL {
 namespace Boards {
@@ -38,6 +42,9 @@ STM32Board::STM32Board() {
 
 	debug_controller_ = std::make_shared<DebugController::DebugController>(DebugInterface::MessageVerbosity::INFO_MSG, debug_uart_communication_);
   gnss_interface_ = std::make_shared<GNSSInterface>(gnss_uart_communication_, debug_controller_); 
+
+  storage_interface_ = std::make_shared<Storage::STM32SD>();
+	storage_interface_->InitStorage();
 
 	HAL_Init();
 	rtos_task_manager_ = std::make_shared<TaskWrapperManager>();

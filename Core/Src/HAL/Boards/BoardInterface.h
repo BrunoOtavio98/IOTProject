@@ -37,6 +37,13 @@ class GNSSInterface;
 
 
 namespace HAL {
+namespace Storage {
+class StorageInterface;
+}
+}
+
+
+namespace HAL {
 namespace Boards {
 
 class BoardInterface {
@@ -55,6 +62,7 @@ protected:
 	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart_communication_;
 
 	std::unique_ptr<HAL::Devices::IOT::Interfaces::ModemInterface> modem_interface_;
+	std::shared_ptr<HAL::Storage::StorageInterface> storage_interface_;
 	std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
 	std::shared_ptr<HAL::RtosWrappers::TaskWrapperManager> rtos_task_manager_;
 	std::shared_ptr<HAL::Devices::Position::GNSSInterface> gnss_interface_;
