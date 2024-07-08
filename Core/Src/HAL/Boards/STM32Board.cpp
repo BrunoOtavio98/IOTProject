@@ -32,6 +32,7 @@ using HAL::DebugController::DebugInterface;
 using HAL::RtosWrappers::TaskWrapperManager;
 using HAL::Devices::Position::GNSSInterface;
 using HAL::Storage::STM32SD;
+using HAL::Storage::STM32SD;
 
 namespace HAL {
 namespace Boards {
@@ -57,7 +58,7 @@ STM32Board::STM32Board() :
 }
 
 STM32Board::~STM32Board() {
-
+  
 }
 
 void STM32Board::Task(void *params) {
