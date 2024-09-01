@@ -32,3 +32,8 @@ settings.json
 *ipch
 *settings.xml
 Middlewares
+Core/Src/freertos.c
+Core/Src/main.cpp
+Core/Src/syscalls.c
+Core/Src/sysmem.c
+Core/Inc/*
