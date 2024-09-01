@@ -11,7 +11,7 @@ namespace Storage {
 class STM32SD : public HAL::Storage::SDInterface
 {
 public:
-    STM32SD(/* args */);
+    STM32SD();
     virtual ~STM32SD();
 
     bool InitStorage() override;

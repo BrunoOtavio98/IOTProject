@@ -10,8 +10,12 @@ namespace Storage {
 class SDInterface : public HAL::Storage::StorageInterface
 {
 public:
-    SDInterface();
-    virtual ~SDInterface();
+    SDInterface() {
+
+    }
+    virtual ~SDInterface() {
+
+    }
 };
 
 }
