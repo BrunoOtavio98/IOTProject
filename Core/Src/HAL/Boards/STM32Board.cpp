@@ -30,7 +30,7 @@ namespace Boards {
 
 STM32Board::STM32Board() {
 	modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
-	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_5, "debug_uart_task");
+	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_1, "debug_uart_task");
 	debug_controller_ = std::make_shared<DebugController::DebugController>(debug_uart_communication_);
 
 	HAL_Init();
