@@ -14,6 +14,7 @@
 #include "DebugController/DebugController.h"
 #include "Storage/StorageInterface.h"
 #include "Storage/STM32SD.h"
+#include "cmsis_os.h"
 
 #include "RTOSWrappers/TaskWrapperManager.h"
 #include "DebugController/DebugInterface.h"
@@ -35,7 +36,10 @@ using HAL::Storage::STM32SD;
 namespace HAL {
 namespace Boards {
 
-STM32Board::STM32Board() {
+STM32Board::STM32Board() : 
+  TaskWrapper("STM32Board", 400, nullptr, 3) 
+{
+
 	//modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
 	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_5, "debug_uart_task");
   gnss_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_9600, UartCommunicationInterface::UartNumber::UART_2, "modem_uart_task");
@@ -48,23 +52,40 @@ STM32Board::STM32Board() {
 
 	HAL_Init();
 	rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
-	//rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
-	rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(debug_uart_communication_));
-  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(gnss_uart_communication_));
 
-	rtos_task_manager_->CreateTask(*debug_controller_);
-  rtos_task_manager_->CreateTask(*gnss_interface_);
+	SystemClockConfig();
 }
 
 STM32Board::~STM32Board() {
 
 }
 
-void STM32Board::InitPeripherals(AvailableModemInterfaces selected_modem) {
-	SystemClockConfig();
-	//ConfigureModem(selected_modem);
+void STM32Board::Task(void *params) {
+  //modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4);
 
-	osKernelStart();
+  storage_interface_ = std::make_shared<Storage::STM32SD>();
+  storage_interface_->InitStorage();
+	
+  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(debug_uart_communication_));
+  rtos_task_manager_->CreateTask(*debug_controller_);
+
+  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(gnss_uart_communication_));
+  rtos_task_manager_->CreateTask(*gnss_interface_);
+  //rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
+  
+  ConfigureModem(selected_modem_);
+} 
+
+void STM32Board::InitPeripherals(AvailableModemInterfaces selected_modem) {
+
+  osKernelInitialize();
+
+  rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
+
+  rtos_task_manager_->CreateTask(*this);
+  selected_modem_ = selected_modem;
+
+  osKernelStart();
 }
 
 void STM32Board::SystemClockConfig() {

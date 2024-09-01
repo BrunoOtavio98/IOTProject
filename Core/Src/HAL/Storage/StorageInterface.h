@@ -9,8 +9,12 @@ namespace Storage {
 class StorageInterface
 {
 public:
-    StorageInterface();
-    virtual ~StorageInterface();
+    StorageInterface() {
+
+    }
+    virtual ~StorageInterface() {
+
+    }
 
     virtual bool InitStorage() {
         return false;
