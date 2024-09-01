@@ -21,13 +21,19 @@ namespace DebugController {
 
 DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) :  
  TaskWrapper(std::string("DebugTask"), 500, nullptr, 1),
+ DebugInterface("DebugController"),
  task_should_run_(true),
  uart_debug_(uart_communication),
  queue_manager_(std::make_shared<QueueWrapper>()),
  rx_buffer_pos_(0) {
-	uart_debug_->ListenRxIT([this](const uint8_t *data, uint16_t size){CallbackUartMsgReceived(data, size);});
+ 
+ uart_debug_->ListenRxIT([this](const uint8_t *data, uint16_t size){CallbackUartMsgReceived(data, size);});
+ debug_msgs_queue_ = queue_manager_->CreateQueue(10, sizeof(DebugData));
 
-	debug_msgs_queue_ = queue_manager_->CreateQueue(10, sizeof(DebugData));
+ RegisterModuleToDebug(this);
+ ChangeVerbosity(MessageVerbosity::DEBUG_MSG);
+
+ PrintDebug(this, "Starting DebugController\n", false);
 }
 
 DebugController::~DebugController() {
@@ -137,7 +143,7 @@ bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInt
 	auto it = std::find(list_of_modules_.begin(), list_of_modules_.end(), module);
 	if(it != list_of_modules_.end()) {
 		DebugInterface *module_interface = *it;
-		if(desired_verbosity > module_interface->GetCurrentVerbosity()) {
+		if(desired_verbosity < module_interface->GetCurrentVerbosity()) {
 			return false;
 		}
 	} else {
