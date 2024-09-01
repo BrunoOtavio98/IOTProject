@@ -36,7 +36,8 @@ class QueueWrapper;
 namespace HAL {
 namespace DebugController {
 
-class DebugController : public HAL::RtosWrappers::TaskWrapper {
+class DebugController : public HAL::RtosWrappers::TaskWrapper,
+						public DebugInterface {
  public:
 	DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication);
 	virtual ~DebugController();
