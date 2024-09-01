@@ -30,26 +30,41 @@ namespace HAL {
 namespace Boards {
 
 STM32Board::STM32Board() : 
-  TaskWrapper("STM32Board", 400, nullptr, 3) {
-	HAL_Init();
-	SystemClockConfig();
+  TaskWrapper("STM32Board", 400, nullptr, 3),
+  DebugInterface("STM32Board") {
+  HAL_Init();
+  SystemClockConfig();
+  ChangeVerbosity(MessageVerbosity::ERROR_MSG);
 }
 
 STM32Board::~STM32Board() {
 }
 
 void STM32Board::Task(void *params) {
-  modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4);
-  debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_1);
-  debug_controller_ = std::make_shared<DebugController::DebugController>(debug_uart_communication_);
-	
-  ConfigureModem(selected_modem_);
 
-  rtos_task_manager_->CreateTask(*debug_controller_);
+	bool flag = false;
+	while(true){
+		if(flag == false) {
+
+			modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4);
+			debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_5);
+			debug_controller_ = std::make_shared<DebugController::DebugController>(debug_uart_communication_);
+	
+			ConfigureModem(selected_modem_);
+
+			rtos_task_manager_->CreateTask(*debug_controller_);
+
+			debug_controller_->RegisterModuleToDebug(this);
+			debug_controller_->PrintInfo(this, "Finishing creating modules\n", false);
+
+			flag = true;
+		}
+		TaskDelay(10000);
+	}
+  rtos_task_manager_->DeleteTask(*this);
 } 
 
 void STM32Board::InitPeripherals(AvailableModemInterfaces selected_modem) {
-  osKernelInitialize();
 
   rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
 
