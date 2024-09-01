@@ -53,12 +53,11 @@ STM32Board::STM32Board() :
 
 	HAL_Init();
 	rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
-
 	SystemClockConfig();
 }
 
 STM32Board::~STM32Board() {
-  
+
 }
 
 void STM32Board::Task(void *params) {
