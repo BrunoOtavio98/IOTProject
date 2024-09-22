@@ -60,10 +60,10 @@ class DebugController : public HAL::RtosWrappers::TaskWrapper,
 private:
 	static const int kBufferSize = 1024;
 
-	struct DebugData {
+	typedef struct {
 		DebugInterface::MessageVerbosity msg_verbosity;
 		char msg[30];
-		char module_name[10];
+		char module_name[30];
 	}DataToLog;
 
 	std::string MessageTypeToStr(const DebugInterface::MessageVerbosity &verbosity);

@@ -28,12 +28,12 @@ DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::In
  rx_buffer_pos_(0) {
  
  uart_debug_->ListenRxIT([this](const uint8_t *data, uint16_t size){CallbackUartMsgReceived(data, size);});
- debug_msgs_queue_ = queue_manager_->CreateQueue(10, sizeof(DebugData));
+ debug_msgs_queue_ = queue_manager_->CreateQueue(10, sizeof(DataToLog));
 
  RegisterModuleToDebug(this);
- ChangeVerbosity(MessageVerbosity::DEBUG_MSG);
+ ChangeVerbosity(MessageVerbosity::INFO_MSG);
 
- PrintDebug(this, "Starting DebugController\n", false);
+ PrintInfo(this, "Starting DebugController\n", false);
 }
 
 DebugController::~DebugController() {
@@ -41,11 +41,12 @@ DebugController::~DebugController() {
 
 void DebugController::Task(void *params) {
 
-	DebugData *current_msg_to_log;
+	DataToLog data_to_log;
 	do 
 	{
-		if(queue_manager_->QueueReceive(debug_msgs_queue_, &current_msg_to_log, 300)) {
-			PrintMessage(current_msg_to_log->msg_verbosity, current_msg_to_log->module_name, current_msg_to_log->msg);
+
+		if(queue_manager_->QueueReceive(debug_msgs_queue_, &data_to_log, 300)) {
+			PrintMessage(data_to_log.msg_verbosity, data_to_log.module_name, data_to_log.msg);
 		}
 
 		if(CanProcessMessage()) {
@@ -118,19 +119,16 @@ void DebugController::PrintError(DebugInterface *module, const std::string &msg,
 }
 
 void DebugController::InsertMsgIntoQueue(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message, bool from_isr) {
-	
-	DebugData *debug_data;
-	strncpy(DataToLog.module_name, module.c_str(), sizeof(DataToLog.module_name));
-	strncpy(DataToLog.msg, message.c_str(), sizeof(DataToLog.msg));
-	DataToLog.msg_verbosity = msg_verbosity;
-
-	debug_data = &DataToLog;
+	DataToLog data_to_log;
+	strncpy(data_to_log.module_name, module.c_str(), sizeof(data_to_log.module_name));
+	strncpy(data_to_log.msg, message.c_str(), sizeof(data_to_log.msg));
+	data_to_log.msg_verbosity = msg_verbosity;
 
 	if(from_isr) {
-		queue_manager_->QueueSendFromISR(debug_msgs_queue_, (void *)&debug_data, 100);
+		queue_manager_->QueueSendFromISR(debug_msgs_queue_, &data_to_log, 100);
 	}
 	else {
-		queue_manager_->QueueSend(debug_msgs_queue_, (void *)&debug_data, 100);
+		queue_manager_->QueueSend(debug_msgs_queue_, &data_to_log, 100);
 	}
 }
 
