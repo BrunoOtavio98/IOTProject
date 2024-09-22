@@ -130,7 +130,6 @@ void DebugController::InsertMsgIntoQueue(const DebugInterface::MessageVerbosity 
 	}
 }
 
-
 bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity) {
 
 	if(module == nullptr) {

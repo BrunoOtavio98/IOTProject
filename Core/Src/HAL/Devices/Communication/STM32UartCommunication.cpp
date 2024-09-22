@@ -23,8 +23,7 @@ namespace Communication {
 std::map<UART_HandleTypeDef*, STM32UartCommunication*> group_of_uarts;
 
 STM32UartCommunication::STM32UartCommunication(UartCommunicationInterface::BaudRates baud_rate, UartCommunicationInterface::UartNumber uart_number, const std::string &task_name) :
-											   UartCommunicationInterface(baud_rate, uart_number),
-											   TaskWrapper(task_name, 500, nullptr, 0),
+											   UartCommunicationInterface(baud_rate, uart_number, task_name,  500, nullptr, 0),
 											   uart_handle_(std::make_unique<UART_HandleTypeDef>()),
 											   rx_buffer_pos_(0),
 											   enable_listen_rx_(false){
@@ -57,9 +56,9 @@ void STM32UartCommunication::Task(void *params) {
 			callback_read_finish_(temp_data, rx_buffer_pos_);
 			rx_buffer_pos_ = 0;
 		}
-		TaskDelay(300);
+		TaskDelay(50);
 	}
-}
+	}
 
 bool STM32UartCommunication::WriteData(const std::string &data_to_write) {
 	const uint8_t *data = reinterpret_cast<const uint8_t *>(&data_to_write[0]);

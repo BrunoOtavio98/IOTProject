@@ -52,6 +52,8 @@ void STM32Board::Task(void *params) {
 	
 			ConfigureModem(selected_modem_);
 
+			rtos_task_manager_->CreateTask(*modem_uart_communication_);
+			rtos_task_manager_->CreateTask(*debug_uart_communication_);
 			rtos_task_manager_->CreateTask(*debug_controller_);
 
 			debug_controller_->RegisterModuleToDebug(this);
