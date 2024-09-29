@@ -29,12 +29,12 @@ static void StaticReceiveCommandCallBackWrapper(void* instance, const uint8_t *d
 }
 
 ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface> &uart_communication, 
-				   			  const std::shared_ptr<HAL::DebugController::DebugController> debug_controler) :
+				   			   const std::shared_ptr<HAL::DebugController::DebugController> debug_controler) :
 							   DebugInterface("Modem"),
 							   TaskWrapper("ModemInterfaceTask", 500, nullptr, 1),
 							   task_should_run_(true),
-							   uart_communication_(uart_communication),
 							   debug_controller_(debug_controler),
+							   uart_communication_(uart_communication),
 							   rx_buffer_pos_(0),
 							   is_isr_executing_(false) {
 
@@ -56,10 +56,11 @@ void ModemInterface::Task(void *params){
 			std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
 			rx_buffer_pos_ = 0;
 
-			debug_controller_->PrintDebug(this, received_message + "\n", true);
-			auto it = modem_commands_.find(current_command_executed_);
+			debug_controller_->PrintDebug(this, received_message, true);
 
+			auto it = modem_commands_.find(current_command_executed_);
 			if(it != modem_commands_.end()) {
+				debug_controller_->PrintDebug(this, "callback for command found\n", true);
 				modem_commands_[current_command_executed_].receive_callback(received_message);
 			}
 		}
@@ -111,7 +112,7 @@ void ModemInterface::ReceiveCommandCallBack(const uint8_t *data, uint16_t data_s
 	if(data == nullptr) {
 		return;
 	}
-	
+
 	if(data_size >= (kRxBufferSize - rx_buffer_pos_) ) {
 		data_size = ((kRxBufferSize - rx_buffer_pos_) - 1);
 	}
@@ -120,15 +121,18 @@ void ModemInterface::ReceiveCommandCallBack(const uint8_t *data, uint16_t data_s
 	std::memcpy(rx_buffer_ + rx_buffer_pos_, data, data_size);
 	rx_buffer_pos_ += data_size;
 	is_isr_executing_ = false;
+	std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
+
+	debug_controller_->PrintDebug(this, "CmdResponse: " + received_message, true);
 }
 
 void ModemInterface::SendTestCommand(const std::string &command) {
-	std::string final_command = command + "=?";
+	std::string final_command = command + "=?" + "\r\n";
 	uart_communication_->WriteData(final_command);
 }
 
 void ModemInterface::SendReadCommand(const std::string &command) {
-	std::string final_command = command + "?";
+	std::string final_command = command + "?" + "\r\n";
 	uart_communication_->WriteData(final_command);
 }
 
@@ -140,7 +144,7 @@ void ModemInterface::SendWriteCommand(const std::string &command, const std::lis
 	for(const auto &parameter : parameters) {
 		num_parameters--;
 		if(!num_parameters) {
-			parameters_as_single_string += parameter;
+			parameters_as_single_string += parameter + "\r\n";
 		}
 		else {
 			parameters_as_single_string += parameter + ",";
@@ -160,7 +164,7 @@ void ModemInterface::SendExecutionCommand(const std::string &command, const std:
 
 		num_parameters--;
 		if(!num_parameters) {
-			parameters_as_single_string += parameter;
+			parameters_as_single_string += parameter + "\r\n";
 		}
 		else {
 			parameters_as_single_string += parameter + ",";
@@ -168,6 +172,8 @@ void ModemInterface::SendExecutionCommand(const std::string &command, const std:
 	}
 
 	final_command += parameters_as_single_string;
+
+	debug_controller_->PrintDebug(this, "Send Cmd: " + final_command + "\n", false);
 	uart_communication_->WriteData(final_command);
 }
 

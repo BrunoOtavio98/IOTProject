@@ -102,9 +102,17 @@ public:
 		Execute
 	};
 
+	enum AtReponses {
+		OK,
+		NO_CARRIER,
+		NO_DIALTONE,
+		BUSY,
+		NO_ANSWER
+	};
+
 	struct ATCommandConfiguration {
 		int16_t timeout;
-		std::function<void(const std::string&)> receive_callback;
+		std::function<bool(const std::string&)> receive_callback;
 	};
 
 	ModemInterface(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communication,
@@ -125,6 +133,7 @@ protected:
 	void Task(void *params) override;
 
 	bool task_should_run_;
+    std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
 	std::map<ATCommands, ATCommandConfiguration> modem_commands_;
 private:
 	static const int kRxBufferSize = 1024;
@@ -133,6 +142,7 @@ private:
 
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication_;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
+    std::map<ATCommands, ATCommandConfiguration> modem_commands_;
     ATCommands current_command_executed_;
 
 	uint8_t rx_buffer_[kRxBufferSize];
