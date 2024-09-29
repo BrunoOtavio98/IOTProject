@@ -2,6 +2,7 @@
 #define SIM800L_H
 
 #include "Devices/IOT/Interfaces/ModemInterface.h"
+#include <string.h>
 
 namespace HAL {
 namespace Devices {
@@ -13,6 +14,9 @@ public:
     SIM800LModem(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communication,
 			const std::shared_ptr<HAL::DebugController::DebugController> &debug_controller);
     ~SIM800LModem();
+
+private:
+    bool GenericCmdResponse(const std::string &response);
 };
 
 }
