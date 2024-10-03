@@ -16,7 +16,7 @@ public:
     ~SIM800LModem();
 
 private:
-    bool GenericCmdResponse(const std::string &response);
+    bool GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute);
 };
 
 }
