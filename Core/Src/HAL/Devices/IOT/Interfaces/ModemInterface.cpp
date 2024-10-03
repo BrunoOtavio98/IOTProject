@@ -9,6 +9,7 @@
 
 #include "Devices/Communication/Interfaces/UartCommunicationInterface.h"
 #include "DebugController/DebugController.h"
+#include "RTOSWrappers/QueueWrapper.h"
 
 #include <cstring>
 #include <functional>
@@ -18,6 +19,7 @@ using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;
 using HAL::DebugController::DebugInterface;
 using HAL::DebugController::DebugController;
 using HAL::RtosWrappers::TaskWrapper;
+using HAL::RtosWrappers::QueueWrapper;
 
 namespace HAL {
 namespace Devices {
@@ -36,11 +38,14 @@ ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface>
 							   debug_controller_(debug_controler),
 							   uart_communication_(uart_communication),
 							   rx_buffer_pos_(0),
-							   is_isr_executing_(false) {
+							   is_isr_executing_(false),
+							   queue_manager_(std::make_shared<QueueWrapper>()) {
 
 	debug_controller_->RegisterModuleToDebug(this);
 	uart_communication_->ListenRxIT(std::bind(&StaticReceiveCommandCallBackWrapper, this, std::placeholders::_1, std::placeholders::_2));
 	debug_controller_->RegisterCallBackToReadMessages([this](const std::string &msg){ForwardDebugUartMessage(msg);});
+	send_cmd_queue_ = queue_manager_->CreateQueue(20, sizeof(struct CurrentCmd));
+	
 	ChangeVerbosity(DebugInterface::MessageVerbosity::DEBUG_MSG);
 }
 
@@ -48,6 +53,9 @@ ModemInterface::~ModemInterface(){
 }
 
 void ModemInterface::Task(void *params){
+
+	bool tx_rx_are_sync = true;
+	struct CurrentCmd current_at_cmd;
 
 	do 
 	{
@@ -60,9 +68,22 @@ void ModemInterface::Task(void *params){
 
 			auto it = modem_commands_.find(current_command_executed_);
 			if(it != modem_commands_.end()) {
-				debug_controller_->PrintDebug(this, "callback for command found\n", true);
-				modem_commands_[current_command_executed_].receive_callback(received_message);
+				modem_commands_[current_command_executed_].receive_callback(received_message, 
+																			current_command_executed_);
 			}
+			tx_rx_are_sync = true;
+		}
+
+		if(tx_rx_are_sync)
+		{	
+			if(queue_manager_->QueueReceive(send_cmd_queue_, &current_at_cmd, 0)) {
+				
+				debug_controller_->PrintDebug(this, "Sending command\n", false);
+				debug_controller_->PrintDebug(this, current_at_cmd.raw_msg, false);
+				current_command_executed_ = current_at_cmd.current_cmd;
+				uart_communication_->WriteData( current_at_cmd.raw_msg );
+			}
+			tx_rx_are_sync = false;
 		}
 
 		TaskDelay(100);
@@ -81,25 +102,23 @@ void ModemInterface::RegisterCommand(const ATCommands &at_command, const ATComma
 }
 
 bool ModemInterface::SendCommand(const AtCommandTypes &command_type, const ATCommands &command_to_execute, const std::list<std::string> &parameters) {
-	current_command_executed_ = command_to_execute;
-
 	std::string command_as_string = EnumCommandToString(command_to_execute);
 	switch (command_type) {
 		case AtCommandTypes::Execute:
 
-			SendExecutionCommand(command_as_string, parameters);
+			SendExecutionCommand(command_as_string, command_to_execute, parameters);
 			break;
 		case AtCommandTypes::Read:
 
-			SendReadCommand(command_as_string);
+			SendReadCommand(command_as_string, command_to_execute);
 			break;
 		case AtCommandTypes::Test:
 
-			SendTestCommand(command_as_string);
+			SendTestCommand(command_as_string, command_to_execute);
 			break;
 		case AtCommandTypes::Write:
 
-			SendWriteCommand(command_as_string, parameters);
+			SendWriteCommand(command_as_string, command_to_execute, parameters);
 			break;
 		default:
 			break;
@@ -126,17 +145,17 @@ void ModemInterface::ReceiveCommandCallBack(const uint8_t *data, uint16_t data_s
 	debug_controller_->PrintDebug(this, "CmdResponse: " + received_message, true);
 }
 
-void ModemInterface::SendTestCommand(const std::string &command) {
+void ModemInterface::SendTestCommand(const std::string &command, const ATCommands &command_to_execute) {
 	std::string final_command = command + "=?" + "\r\n";
-	uart_communication_->WriteData(final_command);
+	SendAtMsgToQueue(final_command, command_to_execute);
 }
 
-void ModemInterface::SendReadCommand(const std::string &command) {
+void ModemInterface::SendReadCommand(const std::string &command, const ATCommands &command_to_execute) {
 	std::string final_command = command + "?" + "\r\n";
-	uart_communication_->WriteData(final_command);
+	SendAtMsgToQueue(final_command, command_to_execute);
 }
 
-void ModemInterface::SendWriteCommand(const std::string &command, const std::list<std::string> &parameters) {
+void ModemInterface::SendWriteCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters) {
 	std::string final_command = command + "=";
 	std::string parameters_as_single_string = "";
 	int num_parameters = parameters.size();
@@ -152,10 +171,10 @@ void ModemInterface::SendWriteCommand(const std::string &command, const std::lis
 	}
 
 	final_command += parameters_as_single_string;
-	uart_communication_->WriteData(final_command);
+	SendAtMsgToQueue(final_command, command_to_execute);
 }
 
-void ModemInterface::SendExecutionCommand(const std::string &command, const std::list<std::string> &parameters) {
+void ModemInterface::SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters) {
 	std::string final_command = command;
 	std::string parameters_as_single_string = "";
 	int num_parameters = parameters.size();
@@ -173,14 +192,22 @@ void ModemInterface::SendExecutionCommand(const std::string &command, const std:
 
 	final_command += parameters_as_single_string;
 
-	debug_controller_->PrintDebug(this, "Send Cmd: " + final_command + "\n", false);
-	uart_communication_->WriteData(final_command);
+	// debug_controller_->PrintDebug(this, "Send Cmd: " + final_command + "\n", false);
+	SendAtMsgToQueue(final_command, command_to_execute);
+}
+
+void ModemInterface::SendAtMsgToQueue(const std::string &raw_cmd, const ATCommands &command_to_execute) {
+
+	struct CurrentCmd post_poned_cmd;
+	post_poned_cmd.current_cmd = command_to_execute;
+	memcpy(post_poned_cmd.raw_msg, raw_cmd.c_str(), std::min(raw_cmd.length(), sizeof( post_poned_cmd.raw_msg )));
+	
+	queue_manager_->QueueSend(send_cmd_queue_, &post_poned_cmd, 100);
 }
 
 void ModemInterface::ForwardDebugUartMessage(const std::string &msg) {
 	uart_communication_->WriteData(msg);
 }
-
 
 std::string ModemInterface::EnumCommandToString(const ATCommands &command) {
 
