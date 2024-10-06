@@ -109,7 +109,9 @@ public:
 		CIPSTART,
 		CIPSEND,
 		CIPCLOSE,
-		CIPSHUT
+		CIPSHUT,
+
+		Invalid,
 	};
 
 	enum AtCommandTypes {
@@ -156,6 +158,7 @@ protected:
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
 private:
 	static const int kRxBufferSize = 1024;
+	static const uint8_t kTaskDelayMs = 100;
 
 	struct CurrentCmd {
 		char raw_msg[50];
@@ -174,6 +177,8 @@ private:
 	bool is_isr_executing_;
 	std::shared_ptr<HAL::RtosWrappers::QueueWrapper> queue_manager_;
 	GenericQueueHandle send_cmd_queue_;
+	uint16_t time_passed_;
+	uint16_t current_timeout_to_monitor_;
 };
 
 }

@@ -76,6 +76,7 @@ void SIM800LModem::OnLoop()
 	if(number_of_expected_responses_ == number_of_received_responses_)
 	{
 		connection_completed_ = true;
+		number_of_received_responses_ = 0;
 	}
 
 	if(connection_completed_) 
@@ -130,30 +131,37 @@ bool SIM800LModem::GenericCmdResponse(const std::string &response, const ATComma
 }
 
 bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &command) {
+	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::CSQRespoonse(const std::string &response, const ATCommands &command) {
+	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::COPSResponse(const std::string &response, const ATCommands &command) {
+	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::CGATTResponse(const std::string &response, const ATCommands &command) {
+	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::CSTTResponse(const std::string &response, const ATCommands &command) {
+	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::CIICRResponse(const std::string &response, const ATCommands &commmand) {
+	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::CIFSRResponse(const std::string &response, const ATCommands &command) {
+	number_of_received_responses_++;
 	return true;
 }
 
