@@ -10,7 +10,6 @@
 
 #include "Devices/Communication/STM32UartCommunication.h"
 #include "Devices/IOT/Interfaces/ModemInterface.h"
-#include "Devices/IOT/Modem/SIM7020E.h"
 #include "Devices/IOT/Modem/SIM800L.h"
 #include "DebugController/DebugController.h"
 #include "RTOSWrappers/TaskWrapperManager.h"
@@ -21,7 +20,6 @@
 using HAL::Devices::Communication::STM32UartCommunication;
 using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;
 using HAL::Devices::IOT::Interfaces::ModemInterface;
-using HAL::Devices::IOT::Modem::SIM7020Modem;
 using HAL::DebugController::DebugController;
 using HAL::RtosWrappers::TaskWrapperManager;
 using HAL::Devices::IOT::Modem::SIM800LModem;
@@ -116,9 +114,6 @@ void STM32Board::SystemClockConfig() {
 void STM32Board::ConfigureModem(AvailableModemInterfaces modem_interface) {
 
 	switch (modem_interface) {
-		case AvailableModemInterfaces::SIM_7020E:
-			modem_interface_ = std::make_unique<SIM7020Modem>(modem_uart_communication_, debug_controller_);
-			break;
     case AvailableModemInterfaces::SIM_800L:
       modem_interface_ = std::make_unique<SIM800LModem>(modem_uart_communication_, debug_controller_);
 		default:
