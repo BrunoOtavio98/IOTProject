@@ -84,6 +84,7 @@ void ModemInterface::Task(void *params){
 			tx_rx_are_sync = false;
 		}
 
+		OnLoop();
 		TaskDelay(100);
 	} while (task_should_run_);
 }
@@ -104,7 +105,7 @@ bool ModemInterface::SendCommand(const AtCommandTypes &command_type, const ATCom
 	switch (command_type) {
 		case AtCommandTypes::Execute:
 
-			SendExecutionCommand(command_as_string, command_to_execute, parameters);
+			SendExecutionCommand(command_as_string, command_to_execute);
 			break;
 		case AtCommandTypes::Read:
 
@@ -170,26 +171,9 @@ void ModemInterface::SendWriteCommand(const std::string &command, const ATComman
 	SendAtMsgToQueue(final_command, command_to_execute);
 }
 
-void ModemInterface::SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters) {
-	std::string final_command = command;
-	std::string parameters_as_single_string = "";
-	int num_parameters = parameters.size();
-
-	for(const auto &parameter : parameters) {
-
-		num_parameters--;
-		if(!num_parameters) {
-			parameters_as_single_string += parameter + "\r\n";
-		}
-		else {
-			parameters_as_single_string += parameter + ",";
-		}
-	}
-
-	final_command += parameters_as_single_string;
-
-	debug_controller_->PrintDebug(this, "Send Queue Cmd: " + final_command, false);
-	SendAtMsgToQueue(final_command, command_to_execute);
+void ModemInterface::SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute) {
+	debug_controller_->PrintDebug(this, "Send Queue Cmd: " + command, false);
+	SendAtMsgToQueue(command, command_to_execute);
 }
 
 void ModemInterface::SendAtMsgToQueue(const std::string &raw_cmd, const ATCommands &command_to_execute) {

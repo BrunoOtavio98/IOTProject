@@ -49,6 +49,7 @@ namespace Interfaces {
 class ModemInterface : public HAL::DebugController::DebugInterface, public HAL::RtosWrappers::TaskWrapper {
 public:
 	enum ATCommands {
+		AT,
 		ATE,
 		ATI,
 		ATL,
@@ -99,7 +100,16 @@ public:
 		CFUN,
 		CCLK,
 		CSIM,
-		CGREG
+		CGREG,
+		CSQ,
+		CGATT,
+		CSTT,
+		CIICR,
+		CIFSR,
+		CIPSTART,
+		CIPSEND,
+		CIPCLOSE,
+		CIPSHUT
 	};
 
 	enum AtCommandTypes {
@@ -134,10 +144,14 @@ protected:
     void SendTestCommand(const std::string &command, const ATCommands &command_to_execute);
     void SendReadCommand(const std::string &command, const ATCommands &command_to_execute);
     void SendWriteCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
-    void SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
+    void SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute);
 
-	void Task(void *params) override;
-	bool Connect(const std::string &apn, const std::string &username, const std::string &password);
+	void Task(void *params);
+	virtual bool Connect(const std::string &apn, const std::string &username, const std::string &password) {
+		return true;
+	};
+
+	virtual void OnLoop() = 0;
 
 	bool task_should_run_;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
