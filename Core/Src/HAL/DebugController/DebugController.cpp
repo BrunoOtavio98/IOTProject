@@ -20,14 +20,14 @@ namespace HAL {
 namespace DebugController {
 
 DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) :  
- TaskWrapper(std::string("DebugTask"), 500, nullptr, 1),
+ TaskWrapper(std::string("DebugTask"), 500, nullptr, 2),
  DebugInterface("DebugController"),
  uart_debug_(uart_communication),
  queue_manager_(std::make_shared<QueueWrapper>()),
  rx_buffer_pos_(0) {
  
  uart_debug_->ListenRxIT([this](const uint8_t *data, uint16_t size){CallbackUartMsgReceived(data, size);});
- debug_msgs_queue_ = queue_manager_->CreateQueue(10, sizeof(DataToLog));
+ debug_msgs_queue_ = queue_manager_->CreateQueue(50, sizeof(DataToLog));
 
  RegisterModuleToDebug(this);
  ChangeVerbosity(MessageVerbosity::INFO_MSG);
@@ -52,7 +52,7 @@ void DebugController::Task(void *params) {
 			rx_buffer_pos_ = 0;
 			DispatchMessage(str);
 		}
-		TaskDelay(200);
+		TaskDelay(100);
 	}	
 }
 
