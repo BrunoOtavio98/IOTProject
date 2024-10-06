@@ -17,6 +17,22 @@ public:
 
 private:
     bool GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute);
+    bool CREGResponse(const std::string &response, const ATCommands &command);
+    bool CSQRespoonse(const std::string &response, const ATCommands &command);
+    bool COPSResponse(const std::string &response, const ATCommands &command);
+    bool CGATTResponse(const std::string &response, const ATCommands &command);
+    bool CSTTResponse(const std::string &response, const ATCommands &command);
+    bool CIICRResponse(const std::string &response, const ATCommands &commmand);
+    bool CIFSRResponse(const std::string &response, const ATCommands &command);    
+
+    bool Connect(const std::string &apn, const std::string &username, const std::string &password) override;
+    void OnLoop() override;
+    void TestConnectionIsUp();
+
+    bool connection_completed_;
+    bool last_cmd_status_;
+    uint8_t number_of_expected_responses_;
+    uint8_t number_of_received_responses_;
 };
 
 }
