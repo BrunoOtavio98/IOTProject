@@ -62,9 +62,6 @@ void ModemInterface::Task(void *params){
 		if(CanProcessUartMessage()) {
 
 			std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
-			rx_buffer_pos_ = 0;
-
-			debug_controller_->PrintDebug(this, received_message, true);
 
 			auto it = modem_commands_.find(current_command_executed_);
 			if(it != modem_commands_.end()) {
@@ -72,14 +69,15 @@ void ModemInterface::Task(void *params){
 																			current_command_executed_);
 			}
 			tx_rx_are_sync = true;
+			
+			rx_buffer_pos_ = 0;
 		}
 
 		if(tx_rx_are_sync)
 		{	
 			if(queue_manager_->QueueReceive(send_cmd_queue_, &current_at_cmd, 0)) {
 				
-				debug_controller_->PrintDebug(this, "Sending command\n", false);
-				debug_controller_->PrintDebug(this, current_at_cmd.raw_msg, false);
+				debug_controller_->PrintDebug(this, "Sending command from queue\n", false);
 				current_command_executed_ = current_at_cmd.current_cmd;
 				uart_communication_->WriteData( current_at_cmd.raw_msg );
 			}
@@ -141,8 +139,6 @@ void ModemInterface::ReceiveCommandCallBack(const uint8_t *data, uint16_t data_s
 	rx_buffer_pos_ += data_size;
 	is_isr_executing_ = false;
 	std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
-
-	debug_controller_->PrintDebug(this, "CmdResponse: " + received_message, true);
 }
 
 void ModemInterface::SendTestCommand(const std::string &command, const ATCommands &command_to_execute) {
@@ -192,7 +188,7 @@ void ModemInterface::SendExecutionCommand(const std::string &command, const ATCo
 
 	final_command += parameters_as_single_string;
 
-	// debug_controller_->PrintDebug(this, "Send Cmd: " + final_command + "\n", false);
+	debug_controller_->PrintDebug(this, "Send Queue Cmd: " + final_command, false);
 	SendAtMsgToQueue(final_command, command_to_execute);
 }
 

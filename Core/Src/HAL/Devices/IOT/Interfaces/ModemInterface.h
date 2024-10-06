@@ -137,6 +137,7 @@ protected:
     void SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
 
 	void Task(void *params) override;
+	bool Connect(const std::string &apn, const std::string &username, const std::string &password);
 
 	bool task_should_run_;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
