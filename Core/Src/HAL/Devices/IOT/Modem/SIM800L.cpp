@@ -14,10 +14,12 @@ namespace Modem {
 SIM800LModem::SIM800LModem(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communication,
 				 const std::shared_ptr<HAL::DebugController::DebugController> &debug_controller) : 
 				 ModemInterface(uart_communication, debug_controller), 
+				 kTimeToTestConnection(kTaskDelayMs * 5),
 				 connection_completed_(false),
 				 last_cmd_status_(true),
 				 number_of_expected_responses_(0),
-				 number_of_received_responses_(0)
+				 number_of_received_responses_(0),
+				 time_control_(0)
 {
 	ATCommandConfiguration generic_at_config;
 	generic_at_config.timeout = 100;
@@ -27,37 +29,37 @@ SIM800LModem::SIM800LModem(const std::shared_ptr<HAL::Devices::Communication::In
 	ATCommandConfiguration creg_config;
 	creg_config.timeout = 100;
 	creg_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CREGResponse(msg, command_to_execute);};
-	RegisterCommand(ATCommands::ATE, creg_config);
+	RegisterCommand(ATCommands::CREG, creg_config);
 
 	ATCommandConfiguration csq_config;
 	csq_config.timeout = 100;
 	csq_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CSQRespoonse(msg, command_to_execute);};
-	RegisterCommand(ATCommands::ATE, csq_config);
+	RegisterCommand(ATCommands::CSQ, csq_config);
 
 	ATCommandConfiguration cops_config;
-	cops_config.timeout = 100;
+	cops_config.timeout = 1200;
 	cops_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return COPSResponse(msg, command_to_execute);};
-	RegisterCommand(ATCommands::ATE, cops_config);
+	RegisterCommand(ATCommands::COPS, cops_config);
 
 	ATCommandConfiguration cgatt_config;
-	cgatt_config.timeout = 100;
+	cgatt_config.timeout = 1000;
 	cgatt_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CGATTResponse(msg, command_to_execute);};
-	RegisterCommand(ATCommands::ATE, cgatt_config);
+	RegisterCommand(ATCommands::CGATT, cgatt_config);
 
 	ATCommandConfiguration cstt_config;
 	cstt_config.timeout = 100;
 	cstt_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CSTTResponse(msg, command_to_execute);};
-	RegisterCommand(ATCommands::ATE, cstt_config);
+	RegisterCommand(ATCommands::CSTT, cstt_config);
 
 	ATCommandConfiguration ciicr_config;
 	ciicr_config.timeout = 100;
 	ciicr_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CIICRResponse(msg, command_to_execute);};
-	RegisterCommand(ATCommands::ATE, ciicr_config);
+	RegisterCommand(ATCommands::CIICR, ciicr_config);
 
 	ATCommandConfiguration cifsr_config;
 	cifsr_config.timeout = 100;
 	cifsr_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CIFSRResponse(msg, command_to_execute);};
-	RegisterCommand(ATCommands::ATE, cifsr_config);
+	RegisterCommand(ATCommands::CIFSR, cifsr_config);
 }
 
 SIM800LModem::~SIM800LModem()
@@ -71,6 +73,8 @@ void SIM800LModem::OnLoop()
 	{
 		Connect("", "", "");
 
+	} else {
+		time_control_ += kTaskDelayMs;
 	}
 
 	if(number_of_expected_responses_ == number_of_received_responses_)
@@ -79,9 +83,10 @@ void SIM800LModem::OnLoop()
 		number_of_received_responses_ = 0;
 	}
 
-	if(connection_completed_) 
-	{
+	if(connection_completed_ && (time_control_ >= kTimeToTestConnection))
+	{	
 		TestConnectionIsUp();
+		time_control_ = 0;
 	}
 }
 
