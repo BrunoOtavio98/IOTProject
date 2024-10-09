@@ -143,6 +143,8 @@ public:
     void ReceiveCommandCallBack(const uint8_t *data, uint16_t data_size);
 
 protected:
+	static const uint8_t kTaskDelayMs = 100;
+
     void SendTestCommand(const std::string &command, const ATCommands &command_to_execute);
     void SendReadCommand(const std::string &command, const ATCommands &command_to_execute);
     void SendWriteCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
@@ -160,7 +162,6 @@ protected:
 	std::map<ATCommands, ATCommandConfiguration> modem_commands_;
 private:
 	static const int kRxBufferSize = 1024;
-	static const uint8_t kTaskDelayMs = 100;
 
 	struct CurrentCmd {
 		char raw_msg[50];

@@ -16,6 +16,8 @@ public:
     ~SIM800LModem();
 
 private:
+    const uint32_t kTimeToTestConnection;
+
     bool GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute);
     bool CREGResponse(const std::string &response, const ATCommands &command);
     bool CSQRespoonse(const std::string &response, const ATCommands &command);
@@ -33,6 +35,7 @@ private:
     bool last_cmd_status_;
     uint8_t number_of_expected_responses_;
     uint8_t number_of_received_responses_;
+    uint32_t time_control_;
 };
 
 }
