@@ -19,7 +19,7 @@ SIM800LModem::SIM800LModem(const std::shared_ptr<HAL::Devices::Communication::In
 				 last_cmd_status_(true),
 				 number_of_expected_responses_(0),
 				 number_of_received_responses_(0),
-				 time_control_(0)
+				 time_passed_keep_alive_(0)
 {
 	ATCommandConfiguration generic_at_config;
 	generic_at_config.timeout = 100;
@@ -72,10 +72,7 @@ void SIM800LModem::OnLoop()
 	if(!connection_completed_)
 	{
 		Connect("", "", "");
-
-	} else {
-		time_control_ += kTaskDelayMs;
-	}
+		}
 
 	if(number_of_expected_responses_ == number_of_received_responses_)
 	{
@@ -83,10 +80,19 @@ void SIM800LModem::OnLoop()
 		number_of_received_responses_ = 0;
 	}
 
-	if(connection_completed_ && (time_control_ >= kTimeToTestConnection))
+	KeepAliveControl();
+}
+
+void SIM800LModem::KeepAliveControl()
+{
+	if(connection_completed_)
+	{
+		time_passed_keep_alive_ += kTaskDelayMs;
+		if(time_passed_keep_alive_ >= kTimeToTestConnection)
 	{	
 		TestConnectionIsUp();
-		time_control_ = 0;
+			time_passed_keep_alive_ = 0;
+		}
 	}
 }
 

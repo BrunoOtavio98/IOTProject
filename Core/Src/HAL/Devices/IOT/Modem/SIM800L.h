@@ -55,16 +55,13 @@ private:
     bool Connect(const std::string &apn, const std::string &username, const std::string &password) override;
     void OnLoop() override;
     void TestConnectionIsUp();
-
-    void CheckResponses();
+    void KeepAliveControl();
 
     bool connection_completed_;
     bool last_cmd_status_;
     uint8_t number_of_expected_responses_;
     uint8_t number_of_received_responses_;
-    uint32_t time_control_;
-
-    CRegResponse current_creg_rsp;
+    uint32_t time_passed_keep_alive_;
 };
 
 }
