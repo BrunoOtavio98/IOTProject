@@ -18,6 +18,31 @@ public:
 private:
     const uint32_t kTimeToTestConnection;
 
+    enum modem_register_state 
+    {
+        kDisable = 0,
+        kEnable,
+        kEnableWithLocation
+    };
+
+    enum register_status
+    {
+        kNotRegistered = 0,
+        kRegistered,
+        kSearching,
+        kRegistrationDenied,
+        kUnknown,
+        kRoaming
+    };
+
+    typedef struct 
+    {
+        modem_register_state modem_state;
+        register_status reg_status; 
+        std::string location_area;
+        std::string cell_id;
+    } CRegResponse;
+
     bool GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute);
     bool CREGResponse(const std::string &response, const ATCommands &command);
     bool CSQRespoonse(const std::string &response, const ATCommands &command);
@@ -31,11 +56,15 @@ private:
     void OnLoop() override;
     void TestConnectionIsUp();
 
+    void CheckResponses();
+
     bool connection_completed_;
     bool last_cmd_status_;
     uint8_t number_of_expected_responses_;
     uint8_t number_of_received_responses_;
     uint32_t time_control_;
+
+    CRegResponse current_creg_rsp;
 };
 
 }
