@@ -171,6 +171,11 @@ private:
 	bool CanProcessUartMessage();
     void ForwardDebugUartMessage(const std::string &msg);
 	void SendAtMsgToQueue(const std::string &raw_cmd, const ATCommands &command_to_execute);
+	void CommandResponseDispatcher();
+	void SendCommandsQueued();
+	void CommandTimeoutMonitor();
+	bool IsModemWaitingForResponse();
+	void TimePassedControl();
 
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication_;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
@@ -183,6 +188,7 @@ private:
 	GenericQueueHandle send_cmd_queue_;
 	uint16_t time_passed_;
 	uint16_t current_timeout_to_monitor_;
+	bool tx_rx_are_sync_;
 };
 
 }

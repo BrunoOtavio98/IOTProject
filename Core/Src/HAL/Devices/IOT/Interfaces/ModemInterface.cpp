@@ -37,11 +37,13 @@ ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface>
 							   task_should_run_(true),
 							   debug_controller_(debug_controler),
 							   uart_communication_(uart_communication),
+							   current_command_executed_(ATCommands::Invalid),
 							   rx_buffer_pos_(0),
 							   is_isr_executing_(false),
 							   queue_manager_(std::make_shared<QueueWrapper>()),
 							   time_passed_(0),
-							   current_timeout_to_monitor_(0) {
+							   current_timeout_to_monitor_(0),
+							   tx_rx_are_sync_(true) {
 	debug_controller_->RegisterModuleToDebug(this);
 	uart_communication_->ListenRxIT(std::bind(&StaticReceiveCommandCallBackWrapper, this, std::placeholders::_1, std::placeholders::_2));
 	debug_controller_->RegisterCallBackToReadMessages([this](const std::string &msg){ForwardDebugUartMessage(msg);});
@@ -54,62 +56,85 @@ ModemInterface::~ModemInterface(){
 }
 
 void ModemInterface::Task(void *params){
+	do
+	{
+		SendCommandsQueued();
+		CommandResponseDispatcher();
+		CommandTimeoutMonitor();
 
-	bool tx_rx_are_sync = true;
+		OnLoop();
+		TaskDelay(kTaskDelayMs);
+		TimePassedControl();
+
+	} while(task_should_run_);
+	
+}
+
+void ModemInterface::CommandResponseDispatcher() {
+	if(CanProcessUartMessage()) {
+		std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
+
+		auto it = modem_commands_.find(current_command_executed_);
+		if(it != modem_commands_.end()) 
+		{
+			modem_commands_[current_command_executed_].receive_callback(received_message, current_command_executed_);
+			current_timeout_to_monitor_ = 0;
+			time_passed_ = 0;
+		}
+		tx_rx_are_sync_ = true;
+		rx_buffer_pos_ = 0;
+	}
+}
+
+void ModemInterface::SendCommandsQueued() {
 	struct CurrentCmd current_at_cmd;
 
-	do
-	{	
-		if(current_timeout_to_monitor_ != 0) {
-			if(time_passed_ > current_timeout_to_monitor_)
-			{
-				auto it = modem_commands_.find(current_command_executed_);
-				if(it != modem_commands_.end()) 
-				{
-					modem_commands_[current_command_executed_].receive_callback("\r\nTIMEOUT\r\n", current_command_executed_);
-				}
-				current_timeout_to_monitor_ = 0;
-				time_passed_ = 0;
-				current_command_executed_  = ATCommands::Invalid;
-			}
-		}
-
-		if(CanProcessUartMessage()) {
-
-			std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
+	if(IsModemWaitingForResponse() == false)
+	{
+		if(queue_manager_->QueueReceive(send_cmd_queue_, &current_at_cmd, 0)) 
+		{
+			debug_controller_->PrintDebug(this, "Sending command from queue\n", false);
+			current_command_executed_ = current_at_cmd.current_cmd;
+			uart_communication_->WriteData( current_at_cmd.raw_msg );
+			tx_rx_are_sync_ = false;
 
 			auto it = modem_commands_.find(current_command_executed_);
 			if(it != modem_commands_.end()) 
 			{
-				modem_commands_[current_command_executed_].receive_callback(received_message, current_command_executed_);
-				current_timeout_to_monitor_ = 0;
-				time_passed_ = 0;
+				current_timeout_to_monitor_ = modem_commands_[current_command_executed_].timeout;
 			}
-			tx_rx_are_sync = true;
-			rx_buffer_pos_ = 0;
 		}
+	}
+}
 
-		if(tx_rx_are_sync)
-		{	
-			if(queue_manager_->QueueReceive(send_cmd_queue_, &current_at_cmd, 0)) 
-			{	
-				debug_controller_->PrintDebug(this, "Sending command from queue\n", false);
-				current_command_executed_ = current_at_cmd.current_cmd;
-				uart_communication_->WriteData( current_at_cmd.raw_msg );
-
-				auto it = modem_commands_.find(current_command_executed_);
-				if(it != modem_commands_.end()) 
-				{
-					current_timeout_to_monitor_ = modem_commands_[current_command_executed_].timeout;
-				}
+void ModemInterface::CommandTimeoutMonitor() {
+	if(IsModemWaitingForResponse()) {
+		if(time_passed_ > current_timeout_to_monitor_)
+		{
+			auto it = modem_commands_.find(current_command_executed_);
+			if(it != modem_commands_.end()) 
+			{
+				modem_commands_[current_command_executed_].receive_callback("\r\nTIMEOUT\r\n", current_command_executed_);
 			}
-			tx_rx_are_sync = false;
+			current_timeout_to_monitor_ = 0;
+			time_passed_ = 0;
+			tx_rx_are_sync_ = true;
+			current_command_executed_  = ATCommands::Invalid;
 		}
+	}
+}
 
-		OnLoop();
-		TaskDelay(kTaskDelayMs);
+void ModemInterface::TimePassedControl() {
+
+	if(IsModemWaitingForResponse())
+	{
 		time_passed_ += kTaskDelayMs;
-	} while (task_should_run_);
+	}
+}
+
+bool ModemInterface::IsModemWaitingForResponse() 
+{
+	return (tx_rx_are_sync_ == false);
 }
 
 bool ModemInterface::CanProcessUartMessage() {
