@@ -131,7 +131,7 @@ public:
 
 	struct ATCommandConfiguration {
 		int16_t timeout;
-		std::function<bool(const std::string&, const ATCommands&)> receive_callback;
+		std::function<bool(const std::string&, const ATCommands&, const AtCommandTypes&)> receive_callback;
 	};
 
 	ModemInterface(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communication,
@@ -166,11 +166,12 @@ private:
 	struct CurrentCmd {
 		char raw_msg[50];
 		ATCommands current_cmd;
+		AtCommandTypes current_cmd_type;
 	};
 
 	bool CanProcessUartMessage();
     void ForwardDebugUartMessage(const std::string &msg);
-	void SendAtMsgToQueue(const std::string &raw_cmd, const ATCommands &command_to_execute);
+	void SendAtMsgToQueue(const std::string &raw_cmd, const ATCommands &command_to_execute, const AtCommandTypes &current_cmd_type);
 	void CommandResponseDispatcher();
 	void SendCommandsQueued();
 	void CommandTimeoutMonitor();
@@ -181,6 +182,7 @@ private:
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
     std::map<ATCommands, ATCommandConfiguration> modem_commands_;
     ATCommands current_command_executed_;
+	AtCommandTypes current_command_type_;
 	uint8_t rx_buffer_[kRxBufferSize];
 	uint16_t rx_buffer_pos_;
 	bool is_isr_executing_;
