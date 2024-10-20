@@ -23,42 +23,50 @@ SIM800LModem::SIM800LModem(const std::shared_ptr<HAL::Devices::Communication::In
 {
 	ATCommandConfiguration generic_at_config;
 	generic_at_config.timeout = 100;
-	generic_at_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return GenericCmdResponse(msg, command_to_execute);};
+	generic_at_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute, const AtCommandTypes &command_type){
+												return GenericCmdResponse(msg, command_to_execute, command_type);};
 	RegisterCommand(ATCommands::ATE, generic_at_config);
 
 	ATCommandConfiguration creg_config;
 	creg_config.timeout = 100;
-	creg_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CREGResponse(msg, command_to_execute);};
+	creg_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute, const AtCommandTypes &command_type){
+												return CREGResponse(msg, command_to_execute, command_type);};
 	RegisterCommand(ATCommands::CREG, creg_config);
 
 	ATCommandConfiguration csq_config;
 	csq_config.timeout = 100;
-	csq_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CSQRespoonse(msg, command_to_execute);};
+	csq_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute, const AtCommandTypes &command_type){
+												return CSQRespoonse(msg, command_to_execute, command_type);};
 	RegisterCommand(ATCommands::CSQ, csq_config);
 
 	ATCommandConfiguration cops_config;
 	cops_config.timeout = 1200;
-	cops_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return COPSResponse(msg, command_to_execute);};
+	cops_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute, const AtCommandTypes &command_type){
+												return COPSResponse(msg, command_to_execute, command_type);};
 	RegisterCommand(ATCommands::COPS, cops_config);
 
 	ATCommandConfiguration cgatt_config;
 	cgatt_config.timeout = 1000;
-	cgatt_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CGATTResponse(msg, command_to_execute);};
+	cgatt_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute, const AtCommandTypes &command_type){
+												return CGATTResponse(msg, command_to_execute, command_type);};
 	RegisterCommand(ATCommands::CGATT, cgatt_config);
 
 	ATCommandConfiguration cstt_config;
 	cstt_config.timeout = 100;
-	cstt_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CSTTResponse(msg, command_to_execute);};
+	cstt_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute, const AtCommandTypes &command_type){
+												return CSTTResponse(msg, command_to_execute, command_type);};
 	RegisterCommand(ATCommands::CSTT, cstt_config);
 
 	ATCommandConfiguration ciicr_config;
 	ciicr_config.timeout = 100;
-	ciicr_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CIICRResponse(msg, command_to_execute);};
+	ciicr_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute, const AtCommandTypes &command_type){
+												return CIICRResponse(msg, command_to_execute, command_type);};
 	RegisterCommand(ATCommands::CIICR, ciicr_config);
 
 	ATCommandConfiguration cifsr_config;
 	cifsr_config.timeout = 100;
-	cifsr_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute){return CIFSRResponse(msg, command_to_execute);};
+	cifsr_config.receive_callback = [this](const std::string &msg, const ATCommands &command_to_execute, const AtCommandTypes &command_type){
+												return CIFSRResponse(msg, command_to_execute, command_type);};
 	RegisterCommand(ATCommands::CIFSR, cifsr_config);
 }
 
@@ -72,15 +80,16 @@ void SIM800LModem::OnLoop()
 	if(!connection_completed_)
 	{
 		Connect("", "", "");
-		}
+		connection_completed_ = true;
+	}
 
 	if(number_of_expected_responses_ == number_of_received_responses_)
-	{
+	{	
 		connection_completed_ = true;
 		number_of_received_responses_ = 0;
 	}
 
-	KeepAliveControl();
+	//KeepAliveControl();
 }
 
 void SIM800LModem::KeepAliveControl()
@@ -89,8 +98,8 @@ void SIM800LModem::KeepAliveControl()
 	{
 		time_passed_keep_alive_ += kTaskDelayMs;
 		if(time_passed_keep_alive_ >= kTimeToTestConnection)
-	{	
-		TestConnectionIsUp();
+		{	
+			TestConnectionIsUp();
 			time_passed_keep_alive_ = 0;
 		}
 	}
@@ -98,7 +107,7 @@ void SIM800LModem::KeepAliveControl()
 
 bool SIM800LModem::Connect(const std::string &apn, const std::string &username, const std::string &password) 
 {	
-	SendCommand(AtCommandTypes::Write, ATCommands::ATE, {"0"});
+	SendCommand(AtCommandTypes::Execute, ATCommands::ATE, {"0"});
 	number_of_expected_responses_++;
 
 	SendCommand(AtCommandTypes::Execute, ATCommands::CSQ, {});
@@ -130,48 +139,58 @@ void SIM800LModem::TestConnectionIsUp()
 	SendCommand(AtCommandTypes::Execute, ATCommands::CREG, {});
 }
 
-bool SIM800LModem::GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute)
+bool SIM800LModem::GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute, const AtCommandTypes &command_type)
 {
-	debug_controller_->PrintInfo(this, "SIM800L: " + response, true);
-	
 	if(response.find("OK") != std::string::npos)
-	{	
+	{
 		return true;
 	}
 	return false;
 }
 
-bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &command) {
+bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
+{
+	if(response.find("OK") == std::string::npos)
+	{
+		return false;
+	}
+
 	number_of_received_responses_++;
 	return true;
 }
 
-bool SIM800LModem::CSQRespoonse(const std::string &response, const ATCommands &command) {
+bool SIM800LModem::CSQRespoonse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type)
+{
 	number_of_received_responses_++;
 	return true;
 }
 
-bool SIM800LModem::COPSResponse(const std::string &response, const ATCommands &command) {
+bool SIM800LModem::COPSResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
+{
 	number_of_received_responses_++;
 	return true;
 }
 
-bool SIM800LModem::CGATTResponse(const std::string &response, const ATCommands &command) {
+bool SIM800LModem::CGATTResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
+{
 	number_of_received_responses_++;
 	return true;
 }
 
-bool SIM800LModem::CSTTResponse(const std::string &response, const ATCommands &command) {
+bool SIM800LModem::CSTTResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
+{
 	number_of_received_responses_++;
 	return true;
 }
 
-bool SIM800LModem::CIICRResponse(const std::string &response, const ATCommands &commmand) {
+bool SIM800LModem::CIICRResponse(const std::string &response, const ATCommands &commmand, const AtCommandTypes &command_type) 
+{
 	number_of_received_responses_++;
 	return true;
 }
 
-bool SIM800LModem::CIFSRResponse(const std::string &response, const ATCommands &command) {
+bool SIM800LModem::CIFSRResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
+{
 	number_of_received_responses_++;
 	return true;
 }

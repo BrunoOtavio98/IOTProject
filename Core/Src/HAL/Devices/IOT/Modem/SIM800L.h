@@ -43,14 +43,14 @@ private:
         std::string cell_id;
     } CRegResponse;
 
-    bool GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute);
-    bool CREGResponse(const std::string &response, const ATCommands &command);
-    bool CSQRespoonse(const std::string &response, const ATCommands &command);
-    bool COPSResponse(const std::string &response, const ATCommands &command);
-    bool CGATTResponse(const std::string &response, const ATCommands &command);
-    bool CSTTResponse(const std::string &response, const ATCommands &command);
-    bool CIICRResponse(const std::string &response, const ATCommands &commmand);
-    bool CIFSRResponse(const std::string &response, const ATCommands &command);    
+    bool GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute, const AtCommandTypes &command_type);
+    bool CREGResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
+    bool CSQRespoonse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
+    bool COPSResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
+    bool CGATTResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
+    bool CSTTResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
+    bool CIICRResponse(const std::string &response, const ATCommands &commmand, const AtCommandTypes &command_type);
+    bool CIFSRResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);    
 
     bool Connect(const std::string &apn, const std::string &username, const std::string &password) override;
     void OnLoop() override;
