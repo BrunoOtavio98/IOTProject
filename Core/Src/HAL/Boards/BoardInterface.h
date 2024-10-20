@@ -31,7 +31,7 @@ class BoardInterface {
 public:
 
 	enum AvailableModemInterfaces {
-		SIM_7020E
+		SIM_800L,
 	};
 
 	BoardInterface();
