@@ -148,7 +148,7 @@ protected:
     void SendTestCommand(const std::string &command, const ATCommands &command_to_execute);
     void SendReadCommand(const std::string &command, const ATCommands &command_to_execute);
     void SendWriteCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
-    void SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute);
+    void SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
 
 	void Task(void *params);
 	virtual bool Connect(const std::string &apn, const std::string &username, const std::string &password) {
