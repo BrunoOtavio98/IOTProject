@@ -2,6 +2,8 @@
 #include "SIM800L.h"
 #include "DebugController/DebugController.h"
 #include <string>
+#include <sstream>
+#include <iostream>
 
 using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;;
 using HAL::DebugController::DebugController;
@@ -107,7 +109,7 @@ void SIM800LModem::KeepAliveControl()
 
 bool SIM800LModem::Connect(const std::string &apn, const std::string &username, const std::string &password) 
 {	
-	SendCommand(AtCommandTypes::Execute, ATCommands::ATE, {"0"});
+	SendCommand(AtCommandTypes::Execute, ATCommands::ATE, {"1"});
 	number_of_expected_responses_++;
 
 	SendCommand(AtCommandTypes::Execute, ATCommands::CSQ, {});
@@ -149,14 +151,26 @@ bool SIM800LModem::GenericCmdResponse(const std::string &response, const ATComma
 }
 
 bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
-{
+{	
+	debug_controller_->PrintDebug(this, "SIM800L: " + response, true);
 	if(response.find("OK") == std::string::npos)
 	{
-		return false;
-	}
+		number_of_received_responses_++;
+		if(command_type == AtCommandTypes::Read)
+		{
+			std::vector<std::string> splitted_response = SplitString(response, ',');
 
-	number_of_received_responses_++;
-	return true;
+			if(splitted_response.size() == 4)
+			{
+			}
+			else 
+			{
+
+			}
+		}
+		return true;
+	}
+	return false;
 }
 
 bool SIM800LModem::CSQRespoonse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type)
@@ -193,6 +207,19 @@ bool SIM800LModem::CIFSRResponse(const std::string &response, const ATCommands &
 {
 	number_of_received_responses_++;
 	return true;
+}
+
+std::vector<std::string> SIM800LModem::SplitString(const std::string &message, char delimiter) 
+{
+	std::vector<std::string> tokens;
+    std::stringstream ss(message);
+    std::string token;
+
+    while (std::getline(ss, token, delimiter)) {
+        tokens.push_back(token);
+    }
+
+    return tokens;
 }
 
 }

@@ -3,6 +3,7 @@
 
 #include "Devices/IOT/Interfaces/ModemInterface.h"
 #include <string.h>
+#include <vector>
 
 namespace HAL {
 namespace Devices {
@@ -56,6 +57,7 @@ private:
     void OnLoop() override;
     void TestConnectionIsUp();
     void KeepAliveControl();
+    std::vector<std::string> SplitString(const std::string &message, char delimiter);
 
     bool connection_completed_;
     bool last_cmd_status_;
