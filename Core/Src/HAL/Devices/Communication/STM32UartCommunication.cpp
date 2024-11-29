@@ -163,11 +163,11 @@ extern "C" {
 		HAL_UART_IRQHandler(current_uart->uart_handle_.get());
 	}
 
-	void UART5_IRQHandler(void) {
+	void USART1_IRQHandler(void) {
 
 		STM32UartCommunication *current_uart = nullptr;
 		for(auto &uart : group_of_uarts) {
-			if(uart.first->Instance == UART5) {
+			if(uart.first->Instance == USART1) {
 				current_uart = uart.second;
 			}
 		}
