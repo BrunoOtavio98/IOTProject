@@ -104,7 +104,8 @@ void ModemInterface::SendCommandsQueued() {
 	if(IsModemWaitingForResponse() == false)
 	{
 		if(queue_manager_->QueueReceive(send_cmd_queue_, &current_at_cmd, 0)) 
-		{
+		{	
+			debug_controller_->PrintDebug(this, "Sending command: " + std::string(current_at_cmd.raw_msg) + "\n", false);
 			current_command_executed_ = current_at_cmd.current_cmd;
 			current_command_type_ = current_at_cmd.current_cmd_type;
 			uart_communication_->WriteData( current_at_cmd.raw_msg );
@@ -252,7 +253,6 @@ void ModemInterface::ReceiveCommandCallBack(const uint8_t *data, uint16_t data_s
 	std::memcpy(rx_buffer_ + rx_buffer_pos_, data, data_size);
 	rx_buffer_pos_ += data_size;
 	is_isr_executing_ = false;
-	std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
 }
 
 void ModemInterface::SendTestCommand(const std::string &command, const ATCommands &command_to_execute) {
@@ -270,13 +270,19 @@ void ModemInterface::SendWriteCommand(const std::string &command, const ATComman
 	std::string parameters_as_single_string = "";
 	int num_parameters = parameters.size();
 
-	for(const auto &parameter : parameters) {
-		num_parameters--;
-		if(!num_parameters) {
-			parameters_as_single_string += parameter + "\r\n";
-		}
-		else {
-			parameters_as_single_string += parameter + ",";
+	if(parameters.empty()) {
+		final_command += "\r\n";
+	}
+	else
+	{
+		for(const auto &parameter : parameters) {
+			num_parameters--;
+			if(!num_parameters) {
+				parameters_as_single_string += parameter + "\r\n";
+			}
+			else {
+				parameters_as_single_string += parameter + ",";
+			}
 		}
 	}
 
@@ -289,14 +295,20 @@ void ModemInterface::SendExecutionCommand(const std::string &command, const ATCo
 	std::string parameters_as_single_string = "";
 	int num_parameters = parameters.size();
 
-	for(const auto &parameter : parameters) {
+	if(parameters.empty()) {
+		final_command += "\r\n";
+	}
+	else
+	{
+		for(const auto &parameter : parameters) {
 
-		num_parameters--;
-		if(!num_parameters) {
-			parameters_as_single_string += parameter + "\r\n";
-		}
-		else {
-			parameters_as_single_string += parameter + ",";
+			num_parameters--;
+			if(!num_parameters) {
+				parameters_as_single_string += parameter + "\r\n";
+			}
+			else {
+				parameters_as_single_string += parameter + ",";
+			}
 		}
 	}
 
