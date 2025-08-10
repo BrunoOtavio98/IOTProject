@@ -58,13 +58,27 @@ void STM32UartCommunication::Task(void *params) {
 		}
 		TaskDelay(50);
 	}
-	}
+}
 
+/**
+ * @brief Write data to UART
+ * 
+ * @param data_to_write: data to be written into UART
+ * @return true in case of success
+ * @return false otherwise
+ */
 bool STM32UartCommunication::WriteData(const std::string &data_to_write) {
 	const uint8_t *data = reinterpret_cast<const uint8_t *>(&data_to_write[0]);
 	return (HAL_UART_Transmit(uart_handle_.get(), data, data_to_write.size(), kUartTimeoutTxCommunication) == HAL_OK);
 }
 
+/**
+ * @brief Read data from UART using interrupt
+ * 
+ * @param callback_read_finish: callback to be called when data is received
+ * @return true: in case of success of registering the interrupt
+ * @return false: otherwise
+ */
 bool STM32UartCommunication::ReadDataIT(std::function<void(const uint8_t *data, uint16_t data_size)> callback_read_finish) {
 	callback_read_finish_ = callback_read_finish;
 
@@ -75,15 +89,32 @@ bool STM32UartCommunication::ReadDataIT(std::function<void(const uint8_t *data, 
 	return false;
 }
 
+/**
+ * @brief Enable listening to RX interrupt
+ * 
+ * @param callback_read_finish: callback to be called when data is received
+ * @return true in case of success of registering the interrupt
+ * @return false otherwise
+ */
 bool STM32UartCommunication::ListenRxIT(std::function<void(const uint8_t *data, uint16_t data_size)> callback_read_finish) {
 	enable_listen_rx_ = true;
 	return ReadDataIT(callback_read_finish);
 }
 
+/**
+ * @brief Disable listening to RX interrupt
+ * 
+ */
 void STM32UartCommunication::DisableListenRxIt() {
 	enable_listen_rx_ = false;
 }
 
+/**
+ * @brief Convert a UartNumber enum to the corresponding USART_TypeDef
+ * 
+ * @param uart_number: UartNumber enum
+ * @return USART_TypeDef*: corresponding USART_TypeDef
+ */
 USART_TypeDef *STM32UartCommunication::BaseUartToHalUartNumber(UartNumber uart_number) {
 
 	switch (uart_number) {
@@ -104,6 +135,11 @@ USART_TypeDef *STM32UartCommunication::BaseUartToHalUartNumber(UartNumber uart_n
 	}
 }
 
+/**
+ * @brief Enable the GPIO clock for the corresponding UART
+ * 
+ * @param uart_number: UartNumber enum
+ */
 void STM32UartCommunication::EnableGPIOClk(UartCommunicationInterface::UartNumber uart_number) {
 
 	switch (uart_number) {

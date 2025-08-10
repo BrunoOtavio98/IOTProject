@@ -70,6 +70,11 @@ void ModemInterface::Task(void *params){
 	
 }
 
+/**
+ * @brief Dispatch the command response received from the modem
+ *        to debug controller and to the registered callback
+ * 
+ */
 void ModemInterface::CommandResponseDispatcher() {
 	if(CanProcessUartMessage()) {
 		std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
@@ -88,6 +93,11 @@ void ModemInterface::CommandResponseDispatcher() {
 	}
 }
 
+/**
+ * @brief After checking if the modem is waiting for a response,
+ * 		  this function will send the first queue command to the modem
+ * 
+ */
 void ModemInterface::SendCommandsQueued() {
 	struct CurrentCmd current_at_cmd;
 
@@ -109,6 +119,12 @@ void ModemInterface::SendCommandsQueued() {
 	}
 }
 
+/**
+ * @brief After a command has been sent to the modem, this function will
+ *        check if the timeout for the command has been reached. If so,
+ *        it will notify the debug controller and the registered callback
+ * 
+ */
 void ModemInterface::CommandTimeoutMonitor() {
 	if(IsModemWaitingForResponse()) {
 		if(time_passed_ > current_timeout_to_monitor_)
@@ -127,6 +143,11 @@ void ModemInterface::CommandTimeoutMonitor() {
 	}
 }
 
+/**
+ * @brief Increment the time passed variable control if 
+ *        the modem interface is waiting for a response
+ * 
+ */
 void ModemInterface::TimePassedControl() {
 
 	if(IsModemWaitingForResponse())
@@ -136,11 +157,23 @@ void ModemInterface::TimePassedControl() {
 	}
 }
 
+/**
+ * @brief Check if the modem interface is waiting for a response
+ * 
+ * @return true 
+ * @return false 
+ */
 bool ModemInterface::IsModemWaitingForResponse() 
 {
 	return (tx_rx_are_sync_ == false);
 }
 
+/**
+ * @brief Check if a complete message has been received from the modem
+ * 
+ * @return true if a complete message has been received
+ * @return false otherwise
+ */
 bool ModemInterface::CanProcessUartMessage() {
 	if( !is_isr_executing_ && (rx_buffer_[rx_buffer_pos_- 1] == '\n' || rx_buffer_[rx_buffer_pos_ - 1] == '\r')) {
 		return true;
@@ -148,10 +181,25 @@ bool ModemInterface::CanProcessUartMessage() {
 	return false;
 }
 
+/**
+ * @brief Register an AT command with its configuration to the modem interface.
+ * 
+ * @param at_command: The AT command to register.
+ * @param command_configuration: The configuration for the AT command, including timeout and a callback function. 
+ */
 void ModemInterface::RegisterCommand(const ATCommands &at_command, const ATCommandConfiguration &command_configuration) {
 	modem_commands_.insert({ at_command, command_configuration });
 }
 
+/**
+ * @brief Send an AT command to the modem.
+ * 
+ * @param command_type: The type of command (Test, Read, Write, Execute).
+ * @param command_to_execute: The specific AT command to execute.
+ * @param parameters: A list of parameters to include with the command.
+ * @return true 
+ * @return false 
+ */
 bool ModemInterface::SendCommand(const AtCommandTypes &command_type, const ATCommands &command_to_execute, const std::list<std::string> &parameters) {
 	std::string command_as_string = EnumCommandToString(command_to_execute);
 
@@ -184,6 +232,13 @@ bool ModemInterface::SendCommand(const AtCommandTypes &command_type, const ATCom
 	return true;
 }
 
+/**
+ * @brief Callback function to receive data from the modem.
+ * 		  Uart communication interface will call this function
+ * 
+ * @param data: Pointer to the received data.
+ * @param data_size: Size of the received data.
+ */
 void ModemInterface::ReceiveCommandCallBack(const uint8_t *data, uint16_t data_size) {
 	if(data == nullptr) {
 		return;
@@ -358,6 +413,8 @@ std::string ModemInterface::EnumCommandToString(const ATCommands &command) {
 			return "AT+CPWD";
 		case CREG:
 			return "AT+CREG";
+		case CSQ:
+			return "AT+CSQ";
 		case CPOL:
 			return "AT+CPOL";
 		case CFUN:
@@ -368,6 +425,14 @@ std::string ModemInterface::EnumCommandToString(const ATCommands &command) {
 			return "AT+CSIM";
 		case CGREG:
 			return "AT+CGREG";
+		case CGATT:
+			return "AT+CGATT";
+		case CSTT:
+			return "AT+CSTT";
+		case CIICR:
+			return "AT+CIICR";
+		case CIFSR:
+			return "AT+CIFSR";
 		default:
 			break;
 	}
