@@ -4,6 +4,7 @@
 #include "Devices/IOT/Interfaces/ModemInterface.h"
 #include <string.h>
 #include <vector>
+#include <stack>
 
 namespace HAL {
 namespace Devices {
@@ -24,6 +25,14 @@ private:
         kDisable = 0,
         kEnable,
         kEnableWithLocation
+    };
+
+    enum modem_cmd_state
+    {
+        kIdle = 0,
+        kWaitingForResponse,
+        kLastCommandExecuted,
+        kError
     };
 
     enum register_status
@@ -53,17 +62,16 @@ private:
     bool CIICRResponse(const std::string &response, const ATCommands &commmand, const AtCommandTypes &command_type);
     bool CIFSRResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);    
 
-    bool Connect(const std::string &apn, const std::string &username, const std::string &password) override;
+    void ConnectStateMachine(const std::string &apn, const std::string &username, const std::string &password) override;
     void OnLoop() override;
     void TestConnectionIsUp();
     void KeepAliveControl();
     std::vector<std::string> SplitString(const std::string &message, char delimiter);
 
+    ATCommands next_cmd_to_execute_;
     bool connection_completed_;
-    bool last_cmd_status_;
-    uint8_t number_of_expected_responses_;
-    uint8_t number_of_received_responses_;
     uint32_t time_passed_keep_alive_;
+    modem_cmd_state current_cmd_state_;
 };
 
 }

@@ -17,11 +17,10 @@ SIM800LModem::SIM800LModem(const std::shared_ptr<HAL::Devices::Communication::In
 				 const std::shared_ptr<HAL::DebugController::DebugController> &debug_controller) : 
 				 ModemInterface(uart_communication, debug_controller), 
 				 kTimeToTestConnection(kTaskDelayMs * 5),
+				 next_cmd_to_execute_(ATCommands::Invalid),
 				 connection_completed_(false),
-				 last_cmd_status_(true),
-				 number_of_expected_responses_(0),
-				 number_of_received_responses_(0),
-				 time_passed_keep_alive_(0)
+				 time_passed_keep_alive_(0),
+				 current_cmd_state_(modem_cmd_state::kIdle)
 {
 	ATCommandConfiguration generic_at_config;
 	generic_at_config.timeout = 100;
@@ -78,17 +77,10 @@ SIM800LModem::~SIM800LModem()
 }
 
 void SIM800LModem::OnLoop() 
-{
+{	
 	if(!connection_completed_)
 	{
-		Connect("", "", "");
-		connection_completed_ = true;
-	}
-
-	if(number_of_expected_responses_ == number_of_received_responses_)
-	{	
-		connection_completed_ = true;
-		number_of_received_responses_ = 0;
+		ConnectStateMachine("", "", "");
 	}
 
 	//KeepAliveControl();
@@ -107,33 +99,175 @@ void SIM800LModem::KeepAliveControl()
 	}
 }
 
-bool SIM800LModem::Connect(const std::string &apn, const std::string &username, const std::string &password) 
+void SIM800LModem::ConnectStateMachine(const std::string &apn, const std::string &username, const std::string &password) 
 {	
-	SendCommand(AtCommandTypes::Execute, ATCommands::ATE, {"1"});
-	number_of_expected_responses_++;
+	AtCommandTypes curr_command_type ;
+	ATCommands curr_command = ATCommands::Invalid;
+	std::list<std::string> curr_parameters;
 
-	SendCommand(AtCommandTypes::Execute, ATCommands::CSQ, {});
-	number_of_expected_responses_++;
+	if(current_cmd_state_ == modem_cmd_state::kError)
+	{
+		next_cmd_to_execute_ = ATCommands::Invalid;
+		debug_controller_->PrintDebug(this, "Modem connection failed, resetting state machine", true);
+	}
 
-	SendCommand(AtCommandTypes::Read, ATCommands::CREG, {});
-	number_of_expected_responses_++;
+	switch (next_cmd_to_execute_)
+	{	
+		
+		case ATCommands::ATE:
+		
+			if(current_cmd_state_ == modem_cmd_state::kIdle) {
+				debug_controller_->PrintDebug(this, "ATCommands:ATE\n", true);
 
-	SendCommand(AtCommandTypes::Read, ATCommands::COPS, {});
-	number_of_expected_responses_++;
+				curr_command_type = AtCommandTypes::Execute;
+				curr_command = ATCommands::ATE;
+				curr_parameters = {"1"};
+				break;
+			}
 
-	SendCommand(AtCommandTypes::Write, ATCommands::CGATT, {"1"});
-	number_of_expected_responses_++;
+			if(current_cmd_state_ == modem_cmd_state::kLastCommandExecuted) {
+				debug_controller_->PrintDebug(this, "Going to ATCommands:CSQ\n", true);
+				next_cmd_to_execute_ = ATCommands::CSQ;
+				current_cmd_state_ = modem_cmd_state::kIdle;
+				break;
+			}
+			break;
+		case ATCommands::CSQ:
 
-	SendCommand(AtCommandTypes::Write, ATCommands::CSTT, {apn, username, password});
-	number_of_expected_responses_++;
+			if(current_cmd_state_ == modem_cmd_state::kIdle) {
+				debug_controller_->PrintDebug(this, "ATCommands:CSQ\n", true);
 
-	SendCommand(AtCommandTypes::Execute, ATCommands::CIICR, {});
-	number_of_expected_responses_++;
+				curr_command_type = AtCommandTypes::Execute;
+				curr_command = ATCommands::CSQ;
+				curr_parameters = {};
+				break;
+			}
 
-	SendCommand(AtCommandTypes::Execute, ATCommands::CIFSR, {});
-	number_of_expected_responses_++;
+			if(current_cmd_state_ == modem_cmd_state::kLastCommandExecuted) {
+				debug_controller_->PrintDebug(this, "Going to ATCommands:CREG\n", true);
+				next_cmd_to_execute_ = ATCommands::CREG;
+				current_cmd_state_ = modem_cmd_state::kIdle;
+				break;
+			}
+			break;
+		case ATCommands::CREG:
+			if(current_cmd_state_ == modem_cmd_state::kIdle) {
+				debug_controller_->PrintDebug(this, "ATCommands:CREG\n", true);
 
-	return true;
+				curr_command_type = AtCommandTypes::Read;
+				curr_command = ATCommands::CREG;
+				curr_parameters = {};
+				break;
+			}
+			
+			if(current_cmd_state_ == modem_cmd_state::kLastCommandExecuted) {
+				debug_controller_->PrintDebug(this, "Going to ATCommands:COPS\n", true);
+				next_cmd_to_execute_ = ATCommands::COPS;
+				current_cmd_state_ = modem_cmd_state::kIdle;
+				break;
+			}
+			break;
+		case ATCommands::COPS:
+			if(current_cmd_state_ == modem_cmd_state::kIdle) {
+				debug_controller_->PrintDebug(this, "ATCommands:COPS\n", true);
+
+				curr_command_type = AtCommandTypes::Read;
+				curr_command = ATCommands::COPS;
+				curr_parameters = {};
+				break;
+			}
+
+			if(current_cmd_state_ == modem_cmd_state::kLastCommandExecuted) {
+				debug_controller_->PrintDebug(this, "Going to ATCommands:CGATT\n", true);
+				next_cmd_to_execute_ = ATCommands::CGATT;
+				current_cmd_state_ = modem_cmd_state::kIdle;
+				break;
+			}
+			break;
+		case ATCommands::CGATT:
+			if(current_cmd_state_ == modem_cmd_state::kIdle) {
+				debug_controller_->PrintDebug(this, "ATCommands:CGATT\n", true);
+
+				curr_command_type = AtCommandTypes::Write;
+				curr_command = ATCommands::CGATT;
+				curr_parameters = {"1"};
+				break;
+			}
+
+			if(current_cmd_state_ == modem_cmd_state::kLastCommandExecuted) {
+				debug_controller_->PrintDebug(this, "Going to ATCommands:CSTT\n", true);
+				next_cmd_to_execute_ = ATCommands::CSTT;
+				current_cmd_state_ = modem_cmd_state::kIdle;
+				break;
+			}
+			break;
+		case ATCommands::CSTT:
+			if(current_cmd_state_ == modem_cmd_state::kIdle) {
+				debug_controller_->PrintDebug(this, "ATCommands:CSTT\n", true);
+
+				curr_command_type = AtCommandTypes::Write;
+				curr_command = ATCommands::CSTT;
+				curr_parameters = {apn, username, password};
+				break;
+			}
+
+			if(current_cmd_state_ == modem_cmd_state::kLastCommandExecuted) {
+				debug_controller_->PrintDebug(this, "Going to ATCommands:CIICR\n", true);
+				next_cmd_to_execute_ = ATCommands::CIICR;
+				current_cmd_state_ = modem_cmd_state::kIdle;
+				break;
+			}
+			break;
+		case ATCommands::CIICR:
+			if(current_cmd_state_ == modem_cmd_state::kIdle) {
+				debug_controller_->PrintDebug(this, "ATCommands:CIICR\n", true);
+
+				curr_command_type = AtCommandTypes::Execute;
+				curr_command = ATCommands::CIICR;
+				curr_parameters = {};
+				break;
+			}
+
+			if(current_cmd_state_ == modem_cmd_state::kLastCommandExecuted) {
+				debug_controller_->PrintDebug(this, "Going to ATCommands:CIFSR\n", true);
+				next_cmd_to_execute_ = ATCommands::CIFSR;
+				current_cmd_state_ = modem_cmd_state::kIdle;
+				break;
+			}
+			break;
+		case ATCommands::CIFSR:
+			if(current_cmd_state_ == modem_cmd_state::kIdle) {
+				debug_controller_->PrintDebug(this, "ATCommands:CIFSR\n", true);
+
+				curr_command_type = AtCommandTypes::Execute;
+				curr_command = ATCommands::CIFSR;
+				curr_parameters = {};
+				break;
+			}
+
+			if(current_cmd_state_ == modem_cmd_state::kLastCommandExecuted) {
+				
+				next_cmd_to_execute_ = ATCommands::Invalid;
+				debug_controller_->PrintDebug(this, "Modem connection completed\n", true);
+				connection_completed_ = true;
+				current_cmd_state_ = modem_cmd_state::kIdle;
+			}
+			break;
+		case ATCommands::Invalid:
+			current_cmd_state_ = modem_cmd_state::kIdle;
+			next_cmd_to_execute_ = ATCommands::ATE;
+			break;
+		default:
+			break;
+	}
+
+	if(connection_completed_ || current_cmd_state_ == modem_cmd_state::kWaitingForResponse ||
+	   current_cmd_state_ == modem_cmd_state::kLastCommandExecuted ||curr_command == ATCommands::Invalid) {
+		return;
+	}
+
+	current_cmd_state_ = modem_cmd_state::kWaitingForResponse;
+	SendCommand(curr_command_type, curr_command, curr_parameters);
 }
 
 void SIM800LModem::TestConnectionIsUp() 
@@ -142,20 +276,25 @@ void SIM800LModem::TestConnectionIsUp()
 }
 
 bool SIM800LModem::GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute, const AtCommandTypes &command_type)
-{
+{	
+	debug_controller_->PrintDebug(this, "Generic CB: " + response, true);
 	if(response.find("OK") != std::string::npos)
-	{
+	{	
+		current_cmd_state_ = modem_cmd_state::kLastCommandExecuted;
+		debug_controller_->PrintDebug(this, "Generic command executed\n", true);
 		return true;
 	}
+
+	current_cmd_state_ = modem_cmd_state::kError;
+	debug_controller_->PrintDebug(this, "Generic command failed\n", true);
 	return false;
 }
 
 bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
 {	
-	debug_controller_->PrintDebug(this, "SIM800L: " + response, true);
+	debug_controller_->PrintDebug(this, "CREG: " + response, true);
 	if(response.find("OK") == std::string::npos)
 	{
-		number_of_received_responses_++;
 		if(command_type == AtCommandTypes::Read)
 		{
 			std::vector<std::string> splitted_response = SplitString(response, ',');
@@ -175,37 +314,31 @@ bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &c
 
 bool SIM800LModem::CSQRespoonse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type)
 {
-	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::COPSResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
 {
-	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::CGATTResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
 {
-	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::CSTTResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
 {
-	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::CIICRResponse(const std::string &response, const ATCommands &commmand, const AtCommandTypes &command_type) 
 {
-	number_of_received_responses_++;
 	return true;
 }
 
 bool SIM800LModem::CIFSRResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
 {
-	number_of_received_responses_++;
 	return true;
 }
 

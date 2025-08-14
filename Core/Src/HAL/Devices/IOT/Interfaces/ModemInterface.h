@@ -151,10 +151,7 @@ protected:
     void SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
 
 	void Task(void *params);
-	virtual bool Connect(const std::string &apn, const std::string &username, const std::string &password) {
-		return true;
-	};
-
+	virtual void ConnectStateMachine(const std::string &apn, const std::string &username, const std::string &password) {};
 	virtual void OnLoop() = 0;
 
 	bool task_should_run_;
