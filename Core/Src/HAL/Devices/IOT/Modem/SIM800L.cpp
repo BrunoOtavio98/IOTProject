@@ -299,9 +299,9 @@ bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &c
 		{
 			case AtCommandTypes::Read:
 			
-		if(command_type == AtCommandTypes::Read)
-		{
-			std::vector<std::string> splitted_response = SplitString(response, ',');
+					if(command_type == AtCommandTypes::Read)
+					{
+						std::vector<std::string> splitted_response = SplitString(response, ',');
 
 						if(splitted_response.size() >= 2)
 						{
@@ -310,7 +310,7 @@ bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &c
 							creg_response.reg_status = static_cast<register_status>(std::stoi(splitted_response[1]));
 							if(splitted_response.size() == 3)
 								creg_response.location_area = splitted_response[2];
-			if(splitted_response.size() == 4)
+							if(splitted_response.size() == 4)
 								creg_response.cell_id = splitted_response[3];
 
 							debug_controller_->PrintDebug(this, "Modem state: " + std::to_string(creg_response.modem_state) + 
@@ -318,13 +318,13 @@ bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &c
 														   " Location area: " + creg_response.location_area + 
 														   " Cell ID: " + creg_response.cell_id + "\n", true);
 							current_cmd_state_ = modem_cmd_state::kLastCommandExecuted;
-			}
-			else 
-			{
+						}
+						else
+						{
 							debug_controller_->PrintError(this, "CREG response format is invalid", true);
 							current_cmd_state_ = modem_cmd_state::kError;
-			}
-		}
+						}
+					}
 				break;
 			case AtCommandTypes::Test:
 			case AtCommandTypes::Write:
@@ -348,8 +348,41 @@ bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &c
 }
 
 bool SIM800LModem::CSQRespoonse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type)
-{
-	return true;
+{	
+	if (response.find("OK") != std::string::npos)
+	{
+		switch (command_type)
+		{
+		case AtCommandTypes::Execute:
+			{
+				std::vector<std::string> splitted_response = SplitString(response, ':');
+				if(splitted_response.size() == 2)
+				{
+					std::vector<std::string> csq_values = SplitString(splitted_response[1], ',');
+					if(csq_values.size() == 2)
+					{
+						int rssi = std::stoi(csq_values[0]);
+						int ber = std::stoi(csq_values[1]);
+						debug_controller_->PrintDebug(this, "RSSI: " + std::to_string(rssi) + " BER: " + std::to_string(ber) + "\n", true);
+					}
+				}
+			}
+
+			current_cmd_state_ = modem_cmd_state::kLastCommandExecuted;
+			break;
+		case AtCommandTypes::Test:
+			current_cmd_state_= modem_cmd_state::kLastCommandExecuted;
+			break;
+		default:
+			current_cmd_state_ = modem_cmd_state::kError;
+			break;
+		}
+	}
+	
+	if(current_cmd_state_ == modem_cmd_state::kLastCommandExecuted)
+		return true;
+
+	return false;
 }
 
 bool SIM800LModem::COPSResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
