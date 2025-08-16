@@ -307,7 +307,7 @@ bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &c
 					std::vector<std::string> creg_values = SplitString(splitted_response[1], ',');
 					if(creg_values.size() < 2 || creg_values.size() > 4)
 					{
-						debug_controller_->PrintError(this, "CREG response format is invalid", true);
+						debug_controller_->PrintError(this, "CREG response format is invalid\n", true);
 						current_cmd_state_ = modem_cmd_state::kError;
 						return false;
 					}
@@ -323,11 +323,21 @@ bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &c
 													" Reg status: " + std::to_string(creg_response.reg_status) + 
 													" Location area: " + creg_response.location_area + 
 													" Cell ID: " + creg_response.cell_id + "\n", true);
+					
+					if(creg_response.reg_status == register_status::kRegistered || creg_response.reg_status == register_status::kRoaming)
+					{
 					current_cmd_state_ = modem_cmd_state::kLastCommandExecuted;
+						debug_controller_->PrintDebug(this, "Modem registered successfully\n", true);
+					}
+					else
+					{	
+						debug_controller_->PrintDebug(this, "Modem not registered, status: " + std::to_string(creg_response.reg_status) + "\n", true);
+						current_cmd_state_ = modem_cmd_state::kError;
+					}
 				}
 				else
 				{
-					debug_controller_->PrintError(this, "CREG response format is invalid", true);
+					debug_controller_->PrintError(this, "CREG response format is invalid\n", true);
 					current_cmd_state_ = modem_cmd_state::kError;
 				}
 			}
