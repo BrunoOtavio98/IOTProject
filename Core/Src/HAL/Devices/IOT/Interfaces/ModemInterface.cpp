@@ -78,7 +78,7 @@ void ModemInterface::Task(void *params){
 void ModemInterface::CommandResponseDispatcher() {
 	if(CanProcessUartMessage()) {
 		std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
-		debug_controller_->PrintDebug(this, "Rsp: " + received_message + "\n", false);
+		//debug_controller_->PrintDebug(this, "Rsp: " + received_message + "\n", false);
 
 		auto it = modem_commands_.find(current_command_executed_);
 		if(it != modem_commands_.end()) 
@@ -248,6 +248,7 @@ void ModemInterface::ReceiveCommandCallBack(const uint8_t *data, uint16_t data_s
 	if(data_size >= (kRxBufferSize - rx_buffer_pos_) ) {
 		data_size = ((kRxBufferSize - rx_buffer_pos_) - 1);
 	}
+	debug_controller_->PrintDebug(this, "Received data: " + std::string(reinterpret_cast<const char*>(data), data_size) + "\n", false);
 
 	is_isr_executing_ = true;
 	std::memcpy(rx_buffer_ + rx_buffer_pos_, data, data_size);

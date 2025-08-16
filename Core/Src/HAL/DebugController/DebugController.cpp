@@ -20,7 +20,7 @@ namespace HAL {
 namespace DebugController {
 
 DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) :  
- TaskWrapper(std::string("DebugTask"), 500, nullptr, 2),
+ TaskWrapper(std::string("DebugTask"), 500, nullptr, 1),
  DebugInterface("DebugController"),
  task_should_run_(true),
  uart_debug_(uart_communication),

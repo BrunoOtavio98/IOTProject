@@ -292,45 +292,53 @@ bool SIM800LModem::GenericCmdResponse(const std::string &response, const ATComma
 
 bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type) 
 {	
-	debug_controller_->PrintDebug(this, "CREG: " + response, true);
 	if(response.find("OK") != std::string::npos)
 	{
+		debug_controller_->PrintDebug(this, "CREG: " + response, true);
 		switch (command_type)
 		{
 			case AtCommandTypes::Read:
-			
-					if(command_type == AtCommandTypes::Read)
+			{
+				std::vector<std::string> splitted_response = SplitString(response, ':');
+
+				if(splitted_response.size() == 2)
+				{	
+					
+					std::vector<std::string> creg_values = SplitString(splitted_response[1], ',');
+					if(creg_values.size() < 2 || creg_values.size() > 4)
 					{
-						std::vector<std::string> splitted_response = SplitString(response, ',');
-
-						if(splitted_response.size() >= 2)
-						{
-							CRegResponse creg_response;
-							creg_response.modem_state = static_cast<modem_register_state>(std::stoi(splitted_response[0]));
-							creg_response.reg_status = static_cast<register_status>(std::stoi(splitted_response[1]));
-							if(splitted_response.size() == 3)
-								creg_response.location_area = splitted_response[2];
-							if(splitted_response.size() == 4)
-								creg_response.cell_id = splitted_response[3];
-
-							debug_controller_->PrintDebug(this, "Modem state: " + std::to_string(creg_response.modem_state) + 
-														   " Reg status: " + std::to_string(creg_response.reg_status) + 
-														   " Location area: " + creg_response.location_area + 
-														   " Cell ID: " + creg_response.cell_id + "\n", true);
-							current_cmd_state_ = modem_cmd_state::kLastCommandExecuted;
-						}
-						else
-						{
-							debug_controller_->PrintError(this, "CREG response format is invalid", true);
-							current_cmd_state_ = modem_cmd_state::kError;
-						}
+						debug_controller_->PrintError(this, "CREG response format is invalid", true);
+						current_cmd_state_ = modem_cmd_state::kError;
+						return false;
 					}
+					CRegResponse creg_response;
+					creg_response.modem_state = static_cast<modem_register_state>(std::stoi(creg_values[0]));
+					creg_response.reg_status = static_cast<register_status>(std::stoi(creg_values[1]));
+					if(creg_values.size() == 3)
+						creg_response.location_area = creg_values[2];
+					if(creg_values.size() == 4)
+						creg_response.cell_id = creg_values[3];
+
+					debug_controller_->PrintDebug(this, "Modem state: " + std::to_string(creg_response.modem_state) + 
+													" Reg status: " + std::to_string(creg_response.reg_status) + 
+													" Location area: " + creg_response.location_area + 
+													" Cell ID: " + creg_response.cell_id + "\n", true);
+					current_cmd_state_ = modem_cmd_state::kLastCommandExecuted;
+				}
+				else
+				{
+					debug_controller_->PrintError(this, "CREG response format is invalid", true);
+					current_cmd_state_ = modem_cmd_state::kError;
+				}
+			}
 				break;
 			case AtCommandTypes::Test:
 			case AtCommandTypes::Write:
+				debug_controller_->PrintDebug(this, "CREG command executed\n", true);
 				current_cmd_state_ = modem_cmd_state::kLastCommandExecuted;
 				break;
 			default:
+				debug_controller_->PrintError(this, "CREG command type is invalid", true);
 				current_cmd_state_ = modem_cmd_state::kError;
 				break;
 		}
@@ -349,6 +357,7 @@ bool SIM800LModem::CREGResponse(const std::string &response, const ATCommands &c
 
 bool SIM800LModem::CSQRespoonse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type)
 {	
+	debug_controller_->PrintDebug(this, "CSQ: " + response, true);
 	if (response.find("OK") != std::string::npos)
 	{
 		switch (command_type)

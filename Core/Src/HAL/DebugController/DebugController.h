@@ -62,8 +62,8 @@ private:
 
 	typedef struct {
 		DebugInterface::MessageVerbosity msg_verbosity;
-		char msg[30];
-		char module_name[30];
+		char msg[60];
+		char module_name[15];
 	}DataToLog;
 
 	std::string MessageTypeToStr(const DebugInterface::MessageVerbosity &verbosity);

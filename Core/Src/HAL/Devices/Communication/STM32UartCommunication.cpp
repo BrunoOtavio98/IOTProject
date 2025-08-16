@@ -51,7 +51,7 @@ void STM32UartCommunication::Task(void *params) {
 	while(1) {
 		
 		if(callback_read_finish_ && rx_buffer_pos_ && !isr_executing_) {
-			uint8_t temp_data[kRxBufferSize];
+			uint8_t temp_data[kRxBufferSize] = {0};
 			std::memcpy(temp_data, rx_buffer_, rx_buffer_pos_);
 			callback_read_finish_(temp_data, rx_buffer_pos_);
 			rx_buffer_pos_ = 0;
