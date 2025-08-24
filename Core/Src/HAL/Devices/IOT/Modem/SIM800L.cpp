@@ -492,6 +492,22 @@ bool SIM800LModem::CIFSRResponse(const std::string &response, const ATCommands &
 	return true;
 }
 
+bool SIM800LModem::ValidateCommandResponse(const std::string& response, const ATCommands& command_to_execute) {
+    // Get the command string that was sent
+    std::string expected_cmd = "AT+" + EnumCommandToString(command_to_execute);
+    
+    // Check for error conditions
+    if(response.find("ERROR") != std::string::npos || 
+       response.find("TIMEOUT") != std::string::npos) {
+        return true;
+    }
+
+    bool has_cmd_echo = (response.find(expected_cmd) != std::string::npos);
+    bool has_ok = (response.find("OK") != std::string::npos);
+    
+    return !(has_cmd_echo && has_ok);
+}
+
 std::vector<std::string> SIM800LModem::SplitString(const std::string &message, char delimiter) 
 {
 	std::vector<std::string> tokens;

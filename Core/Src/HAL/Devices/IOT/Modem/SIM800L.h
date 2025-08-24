@@ -62,6 +62,8 @@ private:
     bool CIICRResponse(const std::string &response, const ATCommands &commmand, const AtCommandTypes &command_type);
     bool CIFSRResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);    
 
+    bool ValidateCommandResponse(const std::string& response, const ATCommands& command_to_execute);
+
     void ConnectStateMachine(const std::string &apn, const std::string &username, const std::string &password) override;
     void OnLoop() override;
     void TestConnectionIsUp();
