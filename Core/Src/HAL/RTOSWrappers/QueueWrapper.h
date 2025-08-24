@@ -32,6 +32,7 @@ public:
     bool QueueSendFromISR(GenericQueueHandle queue, const void *item, int ms_to_wait);
     bool QueueReceive(GenericQueueHandle queue, void *buffer, int ms_to_wait);
     bool QueueReceiveFromISR(GenericQueueHandle queue, void *buffer, int ms_to_wait);
+    bool QueueReset(GenericQueueHandle queue);
 };
 
 }

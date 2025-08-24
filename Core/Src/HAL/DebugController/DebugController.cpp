@@ -20,7 +20,7 @@ namespace HAL {
 namespace DebugController {
 
 DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) :  
- TaskWrapper(std::string("DebugTask"), 500, nullptr, 1),
+ TaskWrapper(std::string("DebugTask"), 500, nullptr, 2),
  DebugInterface("DebugController"),
  task_should_run_(true),
  uart_debug_(uart_communication),
@@ -125,10 +125,16 @@ void DebugController::InsertMsgIntoQueue(const DebugInterface::MessageVerbosity 
 	data_to_log.msg_verbosity = msg_verbosity;
 
 	if(from_isr) {
-		queue_manager_->QueueSendFromISR(debug_msgs_queue_, &data_to_log, 100);
+	 	if( queue_manager_->QueueSendFromISR(debug_msgs_queue_, &data_to_log, 100) == false) {
+			queue_manager_->QueueReset(debug_msgs_queue_);
+			//PrintInfo(this, "Debug queue overflow, reseting queue\n", false);
+		}
 	}
 	else {
-		queue_manager_->QueueSend(debug_msgs_queue_, &data_to_log, 100);
+		if(queue_manager_->QueueSend(debug_msgs_queue_, &data_to_log, 100) == false) {
+			queue_manager_->QueueReset(debug_msgs_queue_);
+			//PrintInfo(this, "Debug queue overflow, reseting queue\n", false);		
+		}
 	}
 }
 
