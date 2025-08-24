@@ -74,6 +74,7 @@ private:
     bool connection_completed_;
     uint32_t time_passed_keep_alive_;
     modem_cmd_state current_cmd_state_;
+    AtCommandTypes internal_curr_command_type_;
 };
 
 }

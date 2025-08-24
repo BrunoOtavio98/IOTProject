@@ -156,6 +156,9 @@ protected:
 
 	bool task_should_run_;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
+	std::string current_apn_;
+	std::string current_username_;
+	std::string current_password_;
 	std::map<ATCommands, ATCommandConfiguration> modem_commands_;
 private:
 	static const int kRxBufferSize = 1024;
