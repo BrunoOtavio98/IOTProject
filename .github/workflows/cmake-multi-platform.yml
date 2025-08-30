@@ -1,40 +1,37 @@
-name: Unit Tests  # Workflow name shown in GitHub UI
+name: Unit Tests
 
-# Define when this workflow should run
 on:
   push:
-    branches: [ main ]  # Run on pushes to main
+    branches: [ main ]
   pull_request:
-    branches: [ main ]  # Run on PRs targeting main
+    branches: [ main ]
 
-# Define the jobs to run
 jobs:
-  build-and-test:  # Job name
-    runs-on: ubuntu-latest  # Runner environment
+  build-and-test:
+    runs-on: ubuntu-latest
 
-    # Sequential steps in this job
     steps:
-    - uses: actions/checkout@v3  # Check out your repository code
-      
-    - name: Install dependencies  # Install required software
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
 
-    - name: Configure CMake  # Setup build environment
+    - name: Configure CMake
       run: |
         chmod +x build_test.sh
         mkdir -p build
         cd build
         cmake ..
 
-    - name: Build and Run Tests  # Run your test script
+    - name: Build and Run Tests
       run: ./build_test.sh
 
-    # Archive test results even if tests fail
     - name: Upload Test Results
-      if: always()  # Run this step regardless of previous step results
-      uses: actions/upload-artifact@v3
+      if: always()
+      uses: actions/upload-artifact@v4    # Updated to v4
       with:
         name: test-results
         path: build/Test/Testing
+        retention-days: 90                # Optional: specify how long to keep artifacts
