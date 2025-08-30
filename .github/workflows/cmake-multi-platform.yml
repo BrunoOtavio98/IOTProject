@@ -18,20 +18,15 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
 
-    - name: Configure CMake
-      run: |
-        chmod +x build_test.sh
-        mkdir -p build
-        cd build
-        cmake ..
-
     - name: Build and Run Tests
+      id: tests
       run: ./build_test.sh
+      continue-on-error: false
 
     - name: Upload Test Results
       if: always()
-      uses: actions/upload-artifact@v4    # Updated to v4
+      uses: actions/upload-artifact@v4
       with:
         name: test-results
         path: build/Test/Testing
-        retention-days: 90                # Optional: specify how long to keep artifacts
+        retention-days: 90
