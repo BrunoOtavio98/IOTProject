@@ -12,6 +12,7 @@ typedef int GenericTaskHandle;
 typedef void (*CallBackType)(void*);
 
 #include <string>
+#include <cstdint>
 
 namespace HAL {
 namespace RtosWrappers {

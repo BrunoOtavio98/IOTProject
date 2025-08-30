@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Exit on any error
+set -e
+
 # Create build directory if it doesn't exist
 mkdir -p build
 
@@ -14,13 +17,13 @@ cmake ..
 echo "Building tests..."
 cmake --build . --target Testing
 
-# Check if build succeeded
-if [ $? -eq 0 ]; then
-    echo "Build successful!"
-    echo "Running tests..."
-    ./Test/Testing
-else
-    echo "Build failed!"
-fi
+# Run tests
+./Test/Testing
+
+# Store the test result
+TEST_RESULT=$?
 
 cd ..
+
+# Exit with the test result
+exit $TEST_RESULT
