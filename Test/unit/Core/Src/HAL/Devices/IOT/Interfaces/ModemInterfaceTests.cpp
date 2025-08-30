@@ -21,7 +21,14 @@ class ModemInterfaceHelper : public ModemInterface {
 
     }
 
-    MOCK_METHOD1(MyMockableCallback, void(const std::string &command));
+   using ModemInterface::Task;
+   using ModemInterface::modem_commands_;
+   MOCK_METHOD1(MyMockableCallback, void(const std::string &command));
+
+   void SetTaskShouldRun(bool should_run) {
+       task_should_run_ = should_run;
+   }
+
 };
 
 class ModemInterfaceTests : public testing::Test
@@ -40,6 +47,26 @@ std::shared_ptr<MockUartCommunicationInterface> uart_modem_;
 std::shared_ptr<MockDebugController> debug_controller_;
 ModemInterfaceHelper modem_;
 };
+
+TEST_F(ModemInterfaceTests, TestRegisterCommand) {
+   ModemInterface::ATCommands cops_cmd = ModemInterface::ATCommands::COPS;
+   ModemInterface::ATCommandConfiguration cmd_config;
+   cmd_config.timeout = 100;
+   cmd_config.receive_callback = [](const std::string &command) {
+      // Do nothing
+   };
+   modem_.RegisterCommand(cops_cmd, cmd_config);
+
+   ModemInterface::ATCommands creg_cmd = ModemInterface::ATCommands::CREG;
+   ModemInterface::ATCommandConfiguration cmd_config2;
+   cmd_config2.timeout = 200;
+   cmd_config2.receive_callback = [](const std::string &command) {
+      // Do nothing
+   };
+   modem_.RegisterCommand(creg_cmd, cmd_config2);
+
+   EXPECT_EQ(modem_.modem_commands_.size(), 2);
+}
 
 TEST_F(ModemInterfaceTests, TestCommandFormat) {
    ModemInterface::ATCommands current_cmd = ModemInterface::ATCommands::COPS;
@@ -97,15 +124,18 @@ TEST_F(ModemInterfaceTests, TestCallingCallback) {
    cmd_config.receive_callback = [&](const std::string &command) {
       modem_.MyMockableCallback(command);
    };
-   std::list<std::string> list_of_parameters;
+   std::list<std::string> list_of_parameters = {};
+   std::string expect_msg_format = "OK\r\n";
+
+   EXPECT_CALL(modem_, MyMockableCallback(expect_msg_format));
+   EXPECT_CALL(*uart_modem_, WriteData("ATI?"));
 
    modem_.RegisterCommand(current_cmd, cmd_config);
    modem_.SendCommand(current_cmd_type, current_cmd, list_of_parameters);
 
-   std::string expect_msg_format = "OK";
-   EXPECT_CALL(modem_, MyMockableCallback(expect_msg_format));
-
-   modem_.ReceiveCommandCallBack(expect_msg_format);
+   modem_.ReceiveCommandCallBack((const uint8_t *)expect_msg_format.c_str(), expect_msg_format.size());
+   modem_.SetTaskShouldRun(false);
+   modem_.Task(nullptr);
 }
 
 }

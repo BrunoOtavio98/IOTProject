@@ -124,6 +124,8 @@ protected:
 
 	void Task(void *params) override;
 
+	bool task_should_run_;
+	std::map<ATCommands, ATCommandConfiguration> modem_commands_;
 private:
 	static const int kRxBufferSize = 1024;
 
@@ -131,7 +133,6 @@ private:
 
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication_;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
-    std::map<ATCommands, ATCommandConfiguration> modem_commands_;
     ATCommands current_command_executed_;
 
 	uint8_t rx_buffer_[kRxBufferSize];

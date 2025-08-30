@@ -12,6 +12,7 @@
 
 #include <cstring>
 #include <functional>
+#include <iostream>
 
 using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;
 using HAL::DebugController::DebugInterface;
@@ -31,10 +32,12 @@ ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface>
 				   			  const std::shared_ptr<HAL::DebugController::DebugController> debug_controler) :
 							   DebugInterface("Modem"),
 							   TaskWrapper("ModemInterfaceTask", 500, nullptr, 1),
+							   task_should_run_(true),
 							   uart_communication_(uart_communication),
 							   debug_controller_(debug_controler),
 							   rx_buffer_pos_(0),
 							   is_isr_executing_(false) {
+
 	debug_controller_->RegisterModuleToDebug(this);
 	uart_communication_->ListenRxIT(std::bind(&StaticReceiveCommandCallBackWrapper, this, std::placeholders::_1, std::placeholders::_2));
 	debug_controller_->RegisterCallBackToReadMessages([this](const std::string &msg){ForwardDebugUartMessage(msg);});
@@ -46,14 +49,14 @@ ModemInterface::~ModemInterface(){
 
 void ModemInterface::Task(void *params){
 
-	while (true)
-	{	
+	do 
+	{
 		if(CanProcessUartMessage()) {
 
 			std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
 			rx_buffer_pos_ = 0;
 
-			debug_controller_->PrintDebug(this, received_message, true);
+			debug_controller_->PrintDebug(this, received_message + "\n", true);
 			auto it = modem_commands_.find(current_command_executed_);
 
 			if(it != modem_commands_.end()) {
@@ -61,9 +64,8 @@ void ModemInterface::Task(void *params){
 			}
 		}
 
-		TaskDelay(300);
-	}
-	
+		TaskDelay(100);
+	} while (task_should_run_);
 }
 
 bool ModemInterface::CanProcessUartMessage() {
