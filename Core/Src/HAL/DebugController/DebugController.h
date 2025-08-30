@@ -50,10 +50,13 @@ class DebugController : public HAL::RtosWrappers::TaskWrapper {
 	
  protected:
 	std::vector<DebugInterface *> list_of_modules_;
+	bool task_should_run_ = true;
+
 	void Task(void *params) override;
 
 	bool CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity);
- private:
+	void CallbackUartMsgReceived(const uint8_t *data, uint16_t size);
+private:
 	static const int kBufferSize = 1024;
 
 	struct DebugData {
@@ -64,7 +67,6 @@ class DebugController : public HAL::RtosWrappers::TaskWrapper {
 
 	std::string MessageTypeToStr(const DebugInterface::MessageVerbosity &verbosity);
 	void PrintMessage(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message);
-	void CallbackUartMsgReceived(const uint8_t *data, uint16_t size);
 	void DispatchMessage(const std::string &message);
 	void InsertMsgIntoQueue(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message, bool from_isr);
 	bool CanProcessMessage();

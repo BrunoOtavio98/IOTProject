@@ -21,6 +21,7 @@ namespace DebugController {
 
 DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) :  
  TaskWrapper(std::string("DebugTask"), 500, nullptr, 1),
+ task_should_run_(true),
  uart_debug_(uart_communication),
  queue_manager_(std::make_shared<QueueWrapper>()),
  rx_buffer_pos_(0) {
@@ -35,8 +36,8 @@ DebugController::~DebugController() {
 void DebugController::Task(void *params) {
 
 	DebugData *current_msg_to_log;
-	while(1) {
-
+	do 
+	{
 		if(queue_manager_->QueueReceive(debug_msgs_queue_, &current_msg_to_log, 300)) {
 			PrintMessage(current_msg_to_log->msg_verbosity, current_msg_to_log->module_name, current_msg_to_log->msg);
 		}
@@ -46,12 +47,13 @@ void DebugController::Task(void *params) {
 			rx_buffer_pos_ = 0;
 			DispatchMessage(str);
 		}
+
 		TaskDelay(200);
-	}	
+	} while(task_should_run_);
 }
 
-void DebugController::CallbackUartMsgReceived(const uint8_t *data, uint16_t size) {
-
+void DebugController::CallbackUartMsgReceived(const uint8_t *data, uint16_t size) 
+{
 	if(data == nullptr) {
 		return;
 	}
@@ -82,31 +84,30 @@ void DebugController::PrintDebug(DebugInterface *module, const std::string &msg,
 	if(!CheckIfModuleCanLog(module, DebugInterface::MessageVerbosity::DEBUG_MSG)) {
 		return;
 	}
-	
 	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::DEBUG_MSG, module->GetModuleName(), msg, from_isr);
 }
 
 void DebugController::PrintInfo(DebugInterface *module, const std::string &msg, bool from_isr) {
+	
 	if(!CheckIfModuleCanLog(module, DebugInterface::MessageVerbosity::INFO_MSG)) {
 		return;
 	}
-
 	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::INFO_MSG, module->GetModuleName(), msg, from_isr);
 }
 
 void DebugController::PrintWarn(DebugInterface *module, const std::string &msg, bool from_isr) {
+	
 	if(!CheckIfModuleCanLog(module, DebugInterface::MessageVerbosity::WARN_MSG)) {
 		return;
 	}
-
 	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::WARN_MSG, module->GetModuleName(), msg, from_isr);
 }
 
 void DebugController::PrintError(DebugInterface *module, const std::string &msg, bool from_isr) {
+	
 	if(!CheckIfModuleCanLog(module, DebugInterface::MessageVerbosity::ERROR_MSG)) {
 		return;
 	}
-
 	InsertMsgIntoQueue(DebugInterface::MessageVerbosity::ERROR_MSG, module->GetModuleName(), msg, from_isr);
 }
 
@@ -126,7 +127,6 @@ void DebugController::InsertMsgIntoQueue(const DebugInterface::MessageVerbosity 
 		queue_manager_->QueueSend(debug_msgs_queue_, (void *)&debug_data, 100);
 	}
 }
-
 
 bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity) {
 
