@@ -50,10 +50,14 @@ class DebugController : public HAL::RtosWrappers::TaskWrapper {
 	
  protected:
 	std::vector<DebugInterface *> list_of_modules_;
+	bool task_should_run_ = true;
+
 	void Task(void *params) override;
 
 	bool CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity);
- private:
+	void CallbackUartMsgReceived(const uint8_t *data, uint16_t size);
+private:
+	static const int kBufferSize = 1024;
 
 	struct DebugData {
 		DebugInterface::MessageVerbosity msg_verbosity;
@@ -61,15 +65,19 @@ class DebugController : public HAL::RtosWrappers::TaskWrapper {
 		char module_name[10];
 	}DataToLog;
 
+	std::string MessageTypeToStr(const DebugInterface::MessageVerbosity &verbosity);
+	void PrintMessage(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message);
+	void DispatchMessage(const std::string &message);
+	void InsertMsgIntoQueue(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message, bool from_isr);
+	bool CanProcessMessage();
+
 	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_debug_;
 	std::list<std::function<void(const std::string&)>> callbacks_;
 	std::shared_ptr<HAL::RtosWrappers::QueueWrapper> queue_manager_;
 	GenericQueueHandle debug_msgs_queue_;
-
-	std::string MessageTypeToStr(const DebugInterface::MessageVerbosity &verbosity);
-	void PrintMessage(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message);
-	void DispatchMessage(const std::string &message);
-	void InsertMsgIntoQueue(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message);
+	uint8_t uart_buffer_receive_[kBufferSize];
+	uint16_t rx_buffer_pos_;
+	bool is_callback_executing_;
 };
 
 }

@@ -17,7 +17,7 @@ public:
     };
 
     MOCK_METHOD1(WriteData, bool(const std::string&));
-    MOCK_METHOD1(ReadDataIT, bool(std::function<void(const std::string&)>));
+    MOCK_METHOD1(ReadDataIT, bool(std::function<void(const uint8_t *, uint16_t)>));
 };
 
 }

@@ -23,7 +23,13 @@ class DebugControllerHelper : public DebugController {
     return list_of_modules_.size();
   }
 
+  void SetTaskShouldRun(bool should_run) {
+    task_should_run_ = should_run;
+  }
+
   using DebugController::CheckIfModuleCanLog;
+  using DebugController::CallbackUartMsgReceived;
+  using DebugController::Task;
 };
 
 class DebugControllerTests : public testing::Test {
@@ -110,6 +116,19 @@ TEST_F(DebugControllerTests, CantLogUnregisteredModule) {
   ASSERT_EQ(debug_controller_.GetNumberOfModules(), 2);
 
   EXPECT_FALSE(debug_controller_.CheckIfModuleCanLog(&debug_interface3, DebugInterface::MessageVerbosity::ERROR_MSG));
+}
+
+TEST_F(DebugControllerTests, DebugControllertests_TestCallbackUartMsgReceived) 
+{
+  std::string expect_msg_format = "Hello World\n";
+  debug_controller_.RegisterCallBackToReadMessages([](const std::string &message) {
+    EXPECT_EQ(message, "Hello World\n");
+  });
+
+  debug_controller_.CallbackUartMsgReceived((const uint8_t *)expect_msg_format.c_str(), expect_msg_format.size());  
+  debug_controller_.SetTaskShouldRun(false);
+  debug_controller_.Task(nullptr);
+
 }
 
 }

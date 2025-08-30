@@ -10,33 +10,69 @@
 #include "Devices/Communication/Interfaces/UartCommunicationInterface.h"
 #include "DebugController/DebugController.h"
 
+#include <cstring>
 #include <functional>
+#include <iostream>
 
 using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;
 using HAL::DebugController::DebugInterface;
 using HAL::DebugController::DebugController;
+using HAL::RtosWrappers::TaskWrapper;
 
 namespace HAL {
 namespace Devices {
 namespace IOT {
 namespace Interfaces {
 
-static void StaticReceiveCommandCallBackWrapper(void* instance, const std::string& data) {
-    static_cast<ModemInterface*>(instance)->ReceiveCommandCallBack(data);
+static void StaticReceiveCommandCallBackWrapper(void* instance, const uint8_t *data, uint16_t data_size) {
+    static_cast<ModemInterface*>(instance)->ReceiveCommandCallBack(data, data_size);
 }
 
 ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface> &uart_communication, 
 				   			  const std::shared_ptr<HAL::DebugController::DebugController> debug_controler) :
 							   DebugInterface("Modem"),
+							   TaskWrapper("ModemInterfaceTask", 500, nullptr, 1),
+							   task_should_run_(true),
 							   uart_communication_(uart_communication),
-							   debug_controller_(debug_controler) {
+							   debug_controller_(debug_controler),
+							   rx_buffer_pos_(0),
+							   is_isr_executing_(false) {
+
 	debug_controller_->RegisterModuleToDebug(this);
-	uart_communication_->ListenRxIT(std::bind(&StaticReceiveCommandCallBackWrapper, this, std::placeholders::_1));
+	uart_communication_->ListenRxIT(std::bind(&StaticReceiveCommandCallBackWrapper, this, std::placeholders::_1, std::placeholders::_2));
 	debug_controller_->RegisterCallBackToReadMessages([this](const std::string &msg){ForwardDebugUartMessage(msg);});
+	ChangeVerbosity(DebugInterface::MessageVerbosity::DEBUG_MSG);
 }
 
 ModemInterface::~ModemInterface(){
+}
 
+void ModemInterface::Task(void *params){
+
+	do 
+	{
+		if(CanProcessUartMessage()) {
+
+			std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
+			rx_buffer_pos_ = 0;
+
+			debug_controller_->PrintDebug(this, received_message + "\n", true);
+			auto it = modem_commands_.find(current_command_executed_);
+
+			if(it != modem_commands_.end()) {
+				modem_commands_[current_command_executed_].receive_callback(received_message);
+			}
+		}
+
+		TaskDelay(100);
+	} while (task_should_run_);
+}
+
+bool ModemInterface::CanProcessUartMessage() {
+	if( !is_isr_executing_ && (rx_buffer_[rx_buffer_pos_- 1] == '\n' || rx_buffer_[rx_buffer_pos_ - 1] == '\r')) {
+		return true;
+	}
+	return false;
 }
 
 void ModemInterface::RegisterCommand(const ATCommands &at_command, const ATCommandConfiguration &command_configuration) {
@@ -71,13 +107,19 @@ bool ModemInterface::SendCommand(const AtCommandTypes &command_type, const ATCom
 	return true;
 }
 
-void ModemInterface::ReceiveCommandCallBack(const std::string &received_message) {
-	debug_controller_->PrintDebug(this, received_message);
-	auto it = modem_commands_.find(current_command_executed_);
-
-	if(it != modem_commands_.end()) {
-		modem_commands_[current_command_executed_].receive_callback(received_message);
+void ModemInterface::ReceiveCommandCallBack(const uint8_t *data, uint16_t data_size) {
+	if(data == nullptr) {
+		return;
 	}
+	
+	if(data_size >= (kRxBufferSize - rx_buffer_pos_) ) {
+		data_size = ((kRxBufferSize - rx_buffer_pos_) - 1);
+	}
+
+	is_isr_executing_ = true;
+	std::memcpy(rx_buffer_ + rx_buffer_pos_, data, data_size);
+	rx_buffer_pos_ += data_size;
+	is_isr_executing_ = false;
 }
 
 void ModemInterface::SendTestCommand(const std::string &command) {
