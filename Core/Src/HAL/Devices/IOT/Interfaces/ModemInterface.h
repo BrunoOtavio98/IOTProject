@@ -144,6 +144,17 @@ public:
 
 protected:
 	static const uint8_t kTaskDelayMs = 100;
+	static const int kRxBufferSize = 1024;
+
+	struct CurrentCmd {
+		char raw_msg[50];
+		ATCommands current_cmd;
+		AtCommandTypes current_cmd_type;
+	};
+
+	ModemInterface(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communication,
+				   const std::shared_ptr<HAL::DebugController::DebugController> debug_controler,
+				   const std::shared_ptr<HAL::RtosWrappers::QueueWrapper> &queue_manager);
 
     void SendTestCommand(const std::string &command, const ATCommands &command_to_execute);
     void SendReadCommand(const std::string &command, const ATCommands &command_to_execute);
@@ -153,6 +164,7 @@ protected:
 	void Task(void *params);
 	virtual void ConnectStateMachine(const std::string &apn, const std::string &username, const std::string &password) {};
 	virtual void OnLoop() = 0;
+	bool CanProcessUartMessage();
 
 	bool task_should_run_;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
@@ -160,16 +172,10 @@ protected:
 	std::string current_username_;
 	std::string current_password_;
 	std::map<ATCommands, ATCommandConfiguration> modem_commands_;
+	uint16_t rx_buffer_pos_;
+	bool is_isr_executing_;
 private:
-	static const int kRxBufferSize = 1024;
 
-	struct CurrentCmd {
-		char raw_msg[50];
-		ATCommands current_cmd;
-		AtCommandTypes current_cmd_type;
-	};
-
-	bool CanProcessUartMessage();
     void ForwardDebugUartMessage(const std::string &msg);
 	void SendAtMsgToQueue(const std::string &raw_cmd, const ATCommands &command_to_execute, const AtCommandTypes &current_cmd_type);
 	void CommandResponseDispatcher();
@@ -179,13 +185,9 @@ private:
 	void TimePassedControl();
 
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication_;
-    std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
-    std::map<ATCommands, ATCommandConfiguration> modem_commands_;
     ATCommands current_command_executed_;
 	AtCommandTypes current_command_type_;
 	uint8_t rx_buffer_[kRxBufferSize];
-	uint16_t rx_buffer_pos_;
-	bool is_isr_executing_;
 	std::shared_ptr<HAL::RtosWrappers::QueueWrapper> queue_manager_;
 	GenericQueueHandle send_cmd_queue_;
 	uint16_t time_passed_;

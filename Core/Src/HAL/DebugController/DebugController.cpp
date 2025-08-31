@@ -148,7 +148,7 @@ bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInt
 	if(it != list_of_modules_.end()) {
 		DebugInterface *module_interface = *it;
 		if(desired_verbosity < module_interface->GetCurrentVerbosity()) {
-			return false;
+			return true;
 		}
 	} else {
 		return false;

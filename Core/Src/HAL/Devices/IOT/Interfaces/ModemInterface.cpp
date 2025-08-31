@@ -13,7 +13,6 @@
 
 #include <cstring>
 #include <functional>
-#include <iostream>
 
 using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;
 using HAL::DebugController::DebugInterface;
@@ -52,12 +51,29 @@ ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface>
 	ChangeVerbosity(DebugInterface::MessageVerbosity::DEBUG_MSG);
 }
 
+ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface> &uart_communication,
+				   			   const std::shared_ptr<HAL::DebugController::DebugController> debug_controler,
+				   			   const std::shared_ptr<HAL::RtosWrappers::QueueWrapper> &queue_manager) :
+							   DebugInterface("Modem"),
+							   TaskWrapper("ModemInterfaceTask", 500, nullptr, 1),
+							   task_should_run_(true),
+							   debug_controller_(debug_controler),
+							   uart_communication_(uart_communication),
+							   current_command_executed_(ATCommands::Invalid),
+							   rx_buffer_pos_(0),
+							   is_isr_executing_(false),
+							   queue_manager_(queue_manager),
+							   time_passed_(0),
+							   current_timeout_to_monitor_(0),
+							   tx_rx_are_sync_(true) {
+}
+
 ModemInterface::~ModemInterface(){
 }
 
 void ModemInterface::Task(void *params){
 	do
-	{
+	{	
 		SendCommandsQueued();
 		CommandResponseDispatcher();
 		CommandTimeoutMonitor();
@@ -79,10 +95,9 @@ void ModemInterface::CommandResponseDispatcher() {
 	if(CanProcessUartMessage()) {
 		std::string received_message(reinterpret_cast<char*>(rx_buffer_), rx_buffer_pos_);
 		//debug_controller_->PrintDebug(this, "Rsp: " + received_message + "\n", false);
-
 		auto it = modem_commands_.find(current_command_executed_);
 		if(it != modem_commands_.end()) 
-		{
+		{	
 			debug_controller_->PrintDebug(this, "Callback has been found\n", false);
 			modem_commands_[current_command_executed_].receive_callback(received_message, current_command_executed_, current_command_type_);
 			current_timeout_to_monitor_ = 0;
@@ -102,7 +117,7 @@ void ModemInterface::SendCommandsQueued() {
 	struct CurrentCmd current_at_cmd;
 
 	if(IsModemWaitingForResponse() == false)
-	{
+	{	
 		if(queue_manager_->QueueReceive(send_cmd_queue_, &current_at_cmd, 0)) 
 		{	
 			debug_controller_->PrintDebug(this, "Sending command: " + std::string(current_at_cmd.raw_msg) + "\n", false);
@@ -133,7 +148,7 @@ void ModemInterface::CommandTimeoutMonitor() {
 			debug_controller_->PrintDebug(this, "Timeout has occured\n", false);
 			auto it = modem_commands_.find(current_command_executed_);
 			if(it != modem_commands_.end()) 
-			{
+			{	
 				modem_commands_[current_command_executed_].receive_callback("\r\nTIMEOUT\r\n", current_command_executed_, current_command_type_);
 			}
 			current_timeout_to_monitor_ = 0;
@@ -152,7 +167,7 @@ void ModemInterface::CommandTimeoutMonitor() {
 void ModemInterface::TimePassedControl() {
 
 	if(IsModemWaitingForResponse())
-	{	
+	{
 		debug_controller_->PrintDebug(this, "Timeout control: " + std::to_string(time_passed_) + "\n", false);
 		time_passed_ += kTaskDelayMs;
 	}
@@ -323,7 +338,7 @@ void ModemInterface::SendAtMsgToQueue(const std::string &raw_cmd, const ATComman
 	post_poned_cmd.current_cmd = command_to_execute;
 	post_poned_cmd.current_cmd_type = current_cmd_type;
 	memcpy(post_poned_cmd.raw_msg, raw_cmd.c_str(), sizeof( post_poned_cmd.raw_msg ));
-	
+
 	queue_manager_->QueueSend(send_cmd_queue_, &post_poned_cmd, 100);
 }
 
