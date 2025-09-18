@@ -12,7 +12,7 @@ namespace Interfaces {
 class MockUartCommunicationInterface : public UartCommunicationInterface
 {
 public:
-    MockUartCommunicationInterface() : UartCommunicationInterface(BaudRates::BAUD_115200, UartNumber::UART_1) {
+    MockUartCommunicationInterface() : UartCommunicationInterface(BaudRates::BAUD_115200, UartNumber::UART_1, "MockUart", 256, nullptr, 1) {
 
     };
 

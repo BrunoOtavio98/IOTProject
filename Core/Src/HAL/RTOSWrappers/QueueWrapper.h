@@ -25,13 +25,14 @@ class QueueWrapper
 public:
     QueueWrapper();
     ~QueueWrapper();
-    GenericQueueHandle CreateQueue(int size, int item_size);
-    int QueueSpacesAvailable(GenericQueueHandle queue);
-    void QueueDelete(GenericQueueHandle queue);
-    bool QueueSend(GenericQueueHandle queue, const void *item, int ms_to_wait);
-    bool QueueSendFromISR(GenericQueueHandle queue, const void *item, int ms_to_wait);
-    bool QueueReceive(GenericQueueHandle queue, void *buffer, int ms_to_wait);
-    bool QueueReceiveFromISR(GenericQueueHandle queue, void *buffer, int ms_to_wait);
+    virtual GenericQueueHandle CreateQueue(int size, int item_size);
+    virtual int QueueSpacesAvailable(GenericQueueHandle queue);
+    virtual void QueueDelete(GenericQueueHandle queue);
+    virtual bool QueueSend(GenericQueueHandle queue, const void *item, int ms_to_wait);
+    virtual bool QueueSendFromISR(GenericQueueHandle queue, const void *item, int ms_to_wait);
+    virtual bool QueueReceive(GenericQueueHandle queue, void *buffer, int ms_to_wait);
+    virtual bool QueueReceiveFromISR(GenericQueueHandle queue, void *buffer, int ms_to_wait);
+    virtual bool QueueReset(GenericQueueHandle queue);
 };
 
 }

@@ -20,14 +20,20 @@ namespace HAL {
 namespace DebugController {
 
 DebugController::DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication) :  
- TaskWrapper(std::string("DebugTask"), 500, nullptr, 1),
+ TaskWrapper(std::string("DebugTask"), 500, nullptr, 2),
+ DebugInterface("DebugController"),
  task_should_run_(true),
  uart_debug_(uart_communication),
  queue_manager_(std::make_shared<QueueWrapper>()),
  rx_buffer_pos_(0) {
-	uart_debug_->ListenRxIT([this](const uint8_t *data, uint16_t size){CallbackUartMsgReceived(data, size);});
+ 
+ uart_debug_->ListenRxIT([this](const uint8_t *data, uint16_t size){CallbackUartMsgReceived(data, size);});
+ debug_msgs_queue_ = queue_manager_->CreateQueue(50, sizeof(DataToLog));
 
-	debug_msgs_queue_ = queue_manager_->CreateQueue(10, sizeof(DebugData));
+ RegisterModuleToDebug(this);
+ ChangeVerbosity(MessageVerbosity::INFO_MSG);
+
+ PrintInfo(this, "Starting DebugController\n", false);
 }
 
 DebugController::~DebugController() {
@@ -35,11 +41,12 @@ DebugController::~DebugController() {
 
 void DebugController::Task(void *params) {
 
-	DebugData *current_msg_to_log;
+	DataToLog data_to_log;
 	do 
 	{
-		if(queue_manager_->QueueReceive(debug_msgs_queue_, &current_msg_to_log, 300)) {
-			PrintMessage(current_msg_to_log->msg_verbosity, current_msg_to_log->module_name, current_msg_to_log->msg);
+
+		if(queue_manager_->QueueReceive(debug_msgs_queue_, &data_to_log, 300)) {
+			PrintMessage(data_to_log.msg_verbosity, data_to_log.module_name, data_to_log.msg);
 		}
 
 		if(CanProcessMessage()) {
@@ -48,7 +55,7 @@ void DebugController::Task(void *params) {
 			DispatchMessage(str);
 		}
 
-		TaskDelay(200);
+		TaskDelay(100);
 	} while(task_should_run_);
 }
 
@@ -112,19 +119,22 @@ void DebugController::PrintError(DebugInterface *module, const std::string &msg,
 }
 
 void DebugController::InsertMsgIntoQueue(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message, bool from_isr) {
-	
-	DebugData *debug_data;
-	strncpy(DataToLog.module_name, module.c_str(), sizeof(DataToLog.module_name));
-	strncpy(DataToLog.msg, message.c_str(), sizeof(DataToLog.msg));
-	DataToLog.msg_verbosity = msg_verbosity;
-
-	debug_data = &DataToLog;
+	DataToLog data_to_log;
+	strncpy(data_to_log.module_name, module.c_str(), sizeof(data_to_log.module_name));
+	strncpy(data_to_log.msg, message.c_str(), sizeof(data_to_log.msg));
+	data_to_log.msg_verbosity = msg_verbosity;
 
 	if(from_isr) {
-		queue_manager_->QueueSendFromISR(debug_msgs_queue_, (void *)&debug_data, 100);
+	 	if( queue_manager_->QueueSendFromISR(debug_msgs_queue_, &data_to_log, 100) == false) {
+			queue_manager_->QueueReset(debug_msgs_queue_);
+			//PrintInfo(this, "Debug queue overflow, reseting queue\n", false);
+		}
 	}
 	else {
-		queue_manager_->QueueSend(debug_msgs_queue_, (void *)&debug_data, 100);
+		if(queue_manager_->QueueSend(debug_msgs_queue_, &data_to_log, 100) == false) {
+			queue_manager_->QueueReset(debug_msgs_queue_);
+			//PrintInfo(this, "Debug queue overflow, reseting queue\n", false);		
+		}
 	}
 }
 
@@ -137,8 +147,8 @@ bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInt
 	auto it = std::find(list_of_modules_.begin(), list_of_modules_.end(), module);
 	if(it != list_of_modules_.end()) {
 		DebugInterface *module_interface = *it;
-		if(desired_verbosity > module_interface->GetCurrentVerbosity()) {
-			return false;
+		if(desired_verbosity < module_interface->GetCurrentVerbosity()) {
+			return true;
 		}
 	} else {
 		return false;

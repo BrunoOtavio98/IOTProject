@@ -16,10 +16,10 @@ namespace DebugController {
 class DebugInterface {
 public:
   enum MessageVerbosity {
-	DEBUG_MSG = 0,
-	ERROR_MSG = 1,
-	WARN_MSG,
-	INFO_MSG,
+	  ERROR_MSG = 0,
+	  WARN_MSG,
+	  INFO_MSG,
+	  DEBUG_MSG,
   };
 
  DebugInterface(const std::string module_name);

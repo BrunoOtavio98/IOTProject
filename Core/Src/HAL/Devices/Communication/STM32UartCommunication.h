@@ -9,7 +9,6 @@
 #define SRC_HAL_DEVICES_COMMUNICATION_STM32UARTCOMMUNICATION_H_
 
 #include "Interfaces/UartCommunicationInterface.h"
-#include "RTOSWrappers/TaskWrapper.h"
 
 #include <memory>
 #include <string>
@@ -19,8 +18,7 @@ namespace HAL {
 namespace Devices {
 namespace Communication {
 
-class STM32UartCommunication : public HAL::Devices::Communication::Interfaces::UartCommunicationInterface,
-							   public HAL::RtosWrappers::TaskWrapper {
+class STM32UartCommunication : public HAL::Devices::Communication::Interfaces::UartCommunicationInterface {
 public:
 	static const int kRxBufferSize = 1024;
 	static const int kChunkSize = 256;
