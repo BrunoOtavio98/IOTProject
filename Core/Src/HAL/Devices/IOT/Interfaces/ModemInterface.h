@@ -138,7 +138,7 @@ public:
 				   const std::shared_ptr<HAL::DebugController::DebugController> debug_controler);
     virtual ~ModemInterface();
     void RegisterCommand(const ATCommands &at_command, const ATCommandConfiguration &command_configuration);
-    bool SendCommand(const AtCommandTypes &command_type, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
+    virtual bool SendCommand(const AtCommandTypes &command_type, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
     std::string EnumCommandToString(const ATCommands &command);
     void ReceiveCommandCallBack(const uint8_t *data, uint16_t data_size);
 
@@ -156,7 +156,7 @@ protected:
 				   const std::shared_ptr<HAL::DebugController::DebugController> debug_controler,
 				   const std::shared_ptr<HAL::RtosWrappers::QueueWrapper> &queue_manager);
 
-    void SendTestCommand(const std::string &command, const ATCommands &command_to_execute);
+	void SendTestCommand(const std::string &command, const ATCommands &command_to_execute);
     void SendReadCommand(const std::string &command, const ATCommands &command_to_execute);
     void SendWriteCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
     void SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);

@@ -93,7 +93,7 @@ void SIM800LModem::OnLoop()
 }
 
 void SIM800LModem::KeepAliveControl()
-{
+{	
 	if(connection_completed_)
 	{
 		time_passed_keep_alive_ += kTaskDelayMs;

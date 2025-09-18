@@ -17,8 +17,16 @@ public:
 			const std::shared_ptr<HAL::DebugController::DebugController> &debug_controller);
     ~SIM800LModem();
 
-private:
+protected:
     const uint32_t kTimeToTestConnection;
+
+    void KeepAliveControl();
+    std::vector<std::string> SplitString(const std::string &message, char delimiter);
+
+    bool connection_completed_;
+    uint32_t time_passed_keep_alive_;
+
+private:
 
     enum modem_register_state 
     {
@@ -67,12 +75,8 @@ private:
     void ConnectStateMachine(const std::string &apn, const std::string &username, const std::string &password) override;
     void OnLoop() override;
     void TestConnectionIsUp();
-    void KeepAliveControl();
-    std::vector<std::string> SplitString(const std::string &message, char delimiter);
 
     ATCommands next_cmd_to_execute_;
-    bool connection_completed_;
-    uint32_t time_passed_keep_alive_;
     modem_cmd_state current_cmd_state_;
     AtCommandTypes internal_curr_command_type_;
 };
