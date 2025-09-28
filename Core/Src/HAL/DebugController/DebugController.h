@@ -38,7 +38,7 @@ namespace DebugController {
 
 class DebugController : public HAL::RtosWrappers::TaskWrapper {
  public:
-	DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication);
+	DebugController(DebugInterface::MessageVerbosity system_verbosity, std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication);
 	virtual ~DebugController();
 
 	virtual void PrintDebug(DebugInterface *module, const std::string &msg, bool from_isr);
@@ -47,7 +47,10 @@ class DebugController : public HAL::RtosWrappers::TaskWrapper {
 	virtual void PrintError(DebugInterface *module, const std::string &msg, bool from_isr);
 	virtual void RegisterModuleToDebug(DebugInterface *module);
 	virtual void RegisterCallBackToReadMessages(std::function<void(const std::string&)> callback);
-	
+	void ChangeSystemVerbosity(const DebugInterface::MessageVerbosity &new_verbosity) {
+		system_verbosity_ = new_verbosity;
+	}
+
  protected:
 	std::vector<DebugInterface *> list_of_modules_;
 	bool task_should_run_ = true;
@@ -78,6 +81,7 @@ private:
 	uint8_t uart_buffer_receive_[kBufferSize];
 	uint16_t rx_buffer_pos_;
 	bool is_callback_executing_;
+	DebugInterface::MessageVerbosity system_verbosity_;
 };
 
 }

@@ -15,7 +15,7 @@ namespace DebugController {
 class DebugControllerHelper : public DebugController {
   public:
   DebugControllerHelper(std::shared_ptr<MockUartCommunicationInterface> uart_communication_)
-                        : DebugController(uart_communication_) {
+                        : DebugController(DebugInterface::MessageVerbosity::INFO_MSG, uart_communication_) {
 
   }
 
@@ -63,8 +63,6 @@ TEST_F(DebugControllerTests, OkToLogWithEqualVerbosity) {
   MockDebugInterface debug_interface2;
   MockDebugInterface debug_interface3;
 
-  EXPECT_CALL(debug_interface1, GetCurrentVerbosity()).WillOnce(Return(DebugInterface::MessageVerbosity::INFO_MSG));
-
   debug_controller_.RegisterModuleToDebug(&debug_interface1);
   debug_controller_.RegisterModuleToDebug(&debug_interface2);
   debug_controller_.RegisterModuleToDebug(&debug_interface3);
@@ -79,8 +77,6 @@ TEST_F(DebugControllerTests, OkToLogWithBiggerVerbosity) {
   MockDebugInterface debug_interface2;
   MockDebugInterface debug_interface3;
 
-  EXPECT_CALL(debug_interface1, GetCurrentVerbosity()).WillOnce(Return(DebugInterface::MessageVerbosity::INFO_MSG));
-
   debug_controller_.RegisterModuleToDebug(&debug_interface1);
   debug_controller_.RegisterModuleToDebug(&debug_interface2);
   debug_controller_.RegisterModuleToDebug(&debug_interface3);
@@ -94,8 +90,7 @@ TEST_F(DebugControllerTests, CantLogWithSmallerVerbosity) {
   MockDebugInterface debug_interface1;
   MockDebugInterface debug_interface2;
   MockDebugInterface debug_interface3;
-
-  EXPECT_CALL(debug_interface1, GetCurrentVerbosity()).WillOnce(Return(DebugInterface::MessageVerbosity::DEBUG_MSG));
+  debug_controller_.ChangeSystemVerbosity(DebugInterface::MessageVerbosity::DEBUG_MSG);  
 
   debug_controller_.RegisterModuleToDebug(&debug_interface1);
   debug_controller_.RegisterModuleToDebug(&debug_interface2);

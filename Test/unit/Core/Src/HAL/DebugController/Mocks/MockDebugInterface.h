@@ -13,8 +13,6 @@ public:
     MockDebugInterface() : DebugInterface(""){
     };
 
-    MOCK_METHOD1(ChangeVerbosity, void(const MessageVerbosity&));
-    MOCK_METHOD0(GetCurrentVerbosity, MessageVerbosity());
     MOCK_METHOD0(GetModuleName, std::string());
 };
 

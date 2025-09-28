@@ -18,7 +18,7 @@ class MockDebugController : public DebugController
 {
 public:
     MockDebugController(std::shared_ptr<MockUartCommunicationInterface> uart_debug) :
-                        DebugController(uart_debug) {
+                        DebugController(DebugInterface::MessageVerbosity::INFO_MSG, uart_debug) {
 
     }
 
