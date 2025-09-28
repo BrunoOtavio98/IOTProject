@@ -10,6 +10,7 @@ using HAL::DebugController::MockDebugController;
 using HAL::Devices::IOT::Interfaces::ModemInterface;
 
 using testing::_;
+using testing::Return;
 
 namespace HAL {
 namespace Devices {
@@ -31,9 +32,23 @@ class SIM800LModemWrapper : public SIM800LModem
     using SIM800LModem::connection_completed_;
     using SIM800LModem::time_passed_keep_alive_;
     using SIM800LModem::modem_commands_;
+    using SIM800LModem::current_cmd_state_;
+    using SIM800LModem::next_cmd_to_execute_;
+
+    using SIM800LModem::modem_register_state;
+    using SIM800LModem::modem_cmd_state;
 
     using SIM800LModem::KeepAliveControl;
     using SIM800LModem::SplitString;
+    using SIM800LModem::ConnectStateMachine;
+    using SIM800LModem::GenericCmdResponse;
+    using SIM800LModem::CREGResponse;
+    using SIM800LModem::CSQResponse;
+    using SIM800LModem::COPSResponse;
+    using SIM800LModem::CGATTResponse;
+    using SIM800LModem::CSTTResponse;
+    using SIM800LModem::CIICRResponse;
+    using SIM800LModem::CIFSRResponse;
 };
 
 class SIM800LTests : public testing::Test 
@@ -121,7 +136,197 @@ TEST_F(SIM800LTests, SIM800LTests_CommandsRegistered)
   EXPECT_NE(modem_.modem_commands_.find(ModemInterface::CIICR), modem_.modem_commands_.end());
   EXPECT_NE(modem_.modem_commands_.find(ModemInterface::CIFSR), modem_.modem_commands_.end());
   EXPECT_NE(modem_.modem_commands_.find(ModemInterface::CFUN), modem_.modem_commands_.end());
+}
 
+TEST_F(SIM800LTests, SIM800LTests_ConnectStateMachineInvalidState)
+{
+  modem_.connection_completed_ = false;
+  modem_.current_cmd_state_ = modem_.modem_cmd_state::kError;
+  modem_.next_cmd_to_execute_ = SIM800LModem::ATCommands::CREG;
+
+  modem_.ConnectStateMachine("apn", "user", "pass");
+
+  EXPECT_EQ(modem_.next_cmd_to_execute_, SIM800LModem::ATCommands::ATE);
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kIdle);
+}
+
+// TEST_F(SIM800LTests, FullSequence_AdvancesThroughCommands_ToCompletion) 
+// {
+//     // Expected linear sequence based on implementation cases
+//     const std::vector<SIM800LModemWrapper::ATCommands> seq = {
+//         SIM800LModemWrapper::ATCommands::ATE,
+//         SIM800LModemWrapper::ATCommands::CFUN,
+//         SIM800LModemWrapper::ATCommands::CSQ,
+//         SIM800LModemWrapper::ATCommands::COPS,
+//         SIM800LModemWrapper::ATCommands::CREG,
+//         SIM800LModemWrapper::ATCommands::CGATT,
+//         SIM800LModemWrapper::ATCommands::CSTT,
+//         SIM800LModemWrapper::ATCommands::CIICR,
+//         SIM800LModemWrapper::ATCommands::CIFSR
+//     };
+
+//     // Allow SendCommand for any command during the Idle -> Waiting transition
+//     EXPECT_CALL(modem_, SendCommand(_, _, _)).Times(testing::AtLeast(1)).WillRepeatedly(Return(true));
+
+//     modem_.next_cmd_to_execute_ = SIM800LModemWrapper::ATCommands::ATE;
+
+//     // Step through each command: first call should send, set waiting; then simulate success to advance
+//     for (size_t i = 0; i < seq.size(); ++i) 
+//     {
+//         // Trigger sending
+//         modem_.ConnectStateMachine("apn", "user", "pass");
+//         EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kWaitingForResponse);
+
+//         // Simulate response processed
+//         modem_.current_cmd_state_ = modem_.modem_cmd_state::kLastCommandExecuted;
+//         modem_.ConnectStateMachine("apn", "user", "pass");
+
+//         if(modem_.next_cmd_to_execute_ == SIM800LModemWrapper::ATCommands::CREG)
+//         {
+
+//         }
+//         else
+//         {
+//           // If not the last element, next_cmd should advance to the next in sequence
+//           if (i + 1 < seq.size()) 
+//           {
+//               EXPECT_EQ(modem_.next_cmd_to_execute_, seq[i + 1]);
+//               EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kIdle);
+//           }
+//           else
+//           {
+//               // After finishing the last sequence element, expect state machine to mark completion
+//               EXPECT_EQ(modem_.next_cmd_to_execute_, SIM800LModemWrapper::ATCommands::Invalid);
+//               EXPECT_TRUE(modem_.connection_completed_);
+//           }
+//       }
+//     }
+// }
+
+TEST_F(SIM800LTests, SIM800LTests_GenericCmdResponseValid)
+{
+  std::string response = "ATE1\n\rOK";
+  bool result = modem_.GenericCmdResponse(response, ModemInterface::ATCommands::ATE, ModemInterface::AtCommandTypes::Execute);
+
+  EXPECT_TRUE(result);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_GenericCmdResponseInvalid)
+{
+  std::string response = "ERROR\n\r";
+  bool result = modem_.GenericCmdResponse(response, ModemInterface::ATCommands::ATE, ModemInterface::AtCommandTypes::Execute);
+
+  EXPECT_FALSE(result); 
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kIdle);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_GenericCmdResponseNoOk)
+{
+  std::string response = "ATE1\n\r";
+  bool result = modem_.GenericCmdResponse(response, ModemInterface::ATCommands::ATE, ModemInterface::AtCommandTypes::Execute);
+
+  EXPECT_FALSE(result); 
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kIdle);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_GenericCmdResponseNoEcho)
+{
+  std::string response = "OK\n\r";
+  bool result = modem_.GenericCmdResponse(response, ModemInterface::ATCommands::ATE, ModemInterface::AtCommandTypes::Execute);
+
+  EXPECT_FALSE(result); 
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kIdle);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_GenericCmdResponseTimeout)
+{
+  std::string response = "TIMEOUT\n\r";
+  bool result = modem_.GenericCmdResponse(response, ModemInterface::ATCommands::ATE, ModemInterface::AtCommandTypes::Execute);
+
+  EXPECT_FALSE(result); 
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kIdle);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_CREGResponseValidRegistered)
+{
+  std::string response = "AT+CREG: 1,1,\"1A2B\",\"1F2E\"\n\rOK";
+  bool result = modem_.CREGResponse(response, ModemInterface::ATCommands::CREG, ModemInterface::AtCommandTypes::Read);
+
+  EXPECT_TRUE(result);
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kLastCommandExecuted);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_CREGResponseValidRoaming)
+{
+  std::string response = "AT+CREG: 1,5,\"1A2B\",\"1F2E\"\n\rOK";
+  bool result = modem_.CREGResponse(response, ModemInterface::ATCommands::CREG, ModemInterface::AtCommandTypes::Read);
+
+  EXPECT_TRUE(result);
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kLastCommandExecuted);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_CREGResponseInValidNotRegistered)
+{
+  std::string response = "AT+CREG: 1,0,\"1A2B\",\"1F2E\"\n\rOK";
+  bool result = modem_.CREGResponse(response, ModemInterface::ATCommands::CREG, ModemInterface::AtCommandTypes::Read);
+
+  EXPECT_FALSE(result);
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kError);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_CREGResponseInvalidFormat)
+{
+  std::string response = "AT+CREG: 1,\"1A2B\",\"1F2E\"\n\rOK";
+  bool result = modem_.CREGResponse(response, ModemInterface::ATCommands::CREG, ModemInterface::AtCommandTypes::Read);
+
+  EXPECT_FALSE(result);
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kError);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_CSQResponseValid)
+{
+  std::string response = "AT+CSQ: 15,99\n\rOK";
+  bool result = modem_.CSQResponse(response, ModemInterface::ATCommands::CSQ, ModemInterface::AtCommandTypes::Execute);
+
+  EXPECT_TRUE(result);
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kLastCommandExecuted);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_CSQResponseInvalidFormat)
+{
+  std::string response = "AT+CSQ: 15\n\rOK";
+  bool result = modem_.CSQResponse(response, ModemInterface::ATCommands::CSQ, ModemInterface::AtCommandTypes::Execute);
+
+  EXPECT_FALSE(result);
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kError);
+}
+
+TEST_F(SIM800LTests, SIM800LTests_CSQResponseInvalidValues)
+{
+  std::string response = "AT+CSQ: XX,YY\n\rOK";
+  bool result = modem_.CSQResponse(response, ModemInterface::ATCommands::CSQ, ModemInterface::AtCommandTypes::Execute);
+
+  EXPECT_FALSE(result);
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kError);
+
+}
+
+TEST_F(SIM800LTests, SIM800LTests_COPSResponseValid)
+{
+  std::string response = "AT+COPS: 0,0,\"Operator\"\n\rOK";
+  bool result = modem_.COPSResponse(response, ModemInterface::ATCommands::COPS, ModemInterface::AtCommandTypes::Read);
+
+  EXPECT_TRUE(result);
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kLastCommandExecuted); 
+}
+
+TEST_F(SIM800LTests, SIM800LTests_COPSResponseInvalidFormat)
+{
+  std::string response = "AT+COPS: D0,\"Operator\"\n\rOK";
+  bool result = modem_.COPSResponse(response, ModemInterface::ATCommands::COPS, ModemInterface::AtCommandTypes::Read);
+
+  EXPECT_FALSE(result);
+  EXPECT_EQ(modem_.current_cmd_state_, modem_.modem_cmd_state::kError); 
 }
 
 }

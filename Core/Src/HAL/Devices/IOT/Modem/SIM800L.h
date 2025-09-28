@@ -20,21 +20,6 @@ public:
 protected:
     const uint32_t kTimeToTestConnection;
 
-    void KeepAliveControl();
-    std::vector<std::string> SplitString(const std::string &message, char delimiter);
-
-    bool connection_completed_;
-    uint32_t time_passed_keep_alive_;
-
-private:
-
-    enum modem_register_state 
-    {
-        kDisable = 0,
-        kEnable,
-        kEnableWithLocation
-    };
-
     enum modem_cmd_state
     {
         kIdle = 0,
@@ -53,6 +38,33 @@ private:
         kRoaming
     };
 
+    enum modem_register_state 
+    {
+        kDisable = 0,
+        kEnable,
+        kEnableWithLocation
+    };
+
+    void KeepAliveControl();
+    std::vector<std::string> SplitString(const std::string &message, char delimiter);
+    void ConnectStateMachine(const std::string &apn, const std::string &username, const std::string &password) override;
+ 
+    bool GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute, const AtCommandTypes &command_type);
+    bool CREGResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
+    bool CSQResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
+    bool COPSResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
+    bool CGATTResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
+    bool CSTTResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
+    bool CIICRResponse(const std::string &response, const ATCommands &commmand, const AtCommandTypes &command_type);
+    bool CIFSRResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);    
+
+    bool connection_completed_;
+    uint32_t time_passed_keep_alive_;
+    ATCommands next_cmd_to_execute_;
+    modem_cmd_state current_cmd_state_;
+
+private:
+
     typedef struct 
     {
         modem_register_state modem_state;
@@ -61,23 +73,11 @@ private:
         std::string cell_id;
     } CRegResponse;
 
-    bool GenericCmdResponse(const std::string &response, const ATCommands &command_to_execute, const AtCommandTypes &command_type);
-    bool CREGResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
-    bool CSQRespoonse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
-    bool COPSResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
-    bool CGATTResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
-    bool CSTTResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);
-    bool CIICRResponse(const std::string &response, const ATCommands &commmand, const AtCommandTypes &command_type);
-    bool CIFSRResponse(const std::string &response, const ATCommands &command, const AtCommandTypes &command_type);    
+    bool IsCommandResponseFormatValid(const std::string& response, const ATCommands& command_to_execute);
 
-    bool ValidateCommandResponse(const std::string& response, const ATCommands& command_to_execute);
-
-    void ConnectStateMachine(const std::string &apn, const std::string &username, const std::string &password) override;
     void OnLoop() override;
     void TestConnectionIsUp();
 
-    ATCommands next_cmd_to_execute_;
-    modem_cmd_state current_cmd_state_;
     AtCommandTypes internal_curr_command_type_;
 };
 
