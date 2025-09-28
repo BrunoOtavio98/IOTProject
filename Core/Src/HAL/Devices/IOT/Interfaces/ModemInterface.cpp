@@ -41,7 +41,6 @@ ModemInterface::ModemInterface(const std::shared_ptr<UartCommunicationInterface>
 	debug_controller_->RegisterModuleToDebug(this);
 	uart_communication_->ListenRxIT(std::bind(&StaticReceiveCommandCallBackWrapper, this, std::placeholders::_1, std::placeholders::_2));
 	debug_controller_->RegisterCallBackToReadMessages([this](const std::string &msg){ForwardDebugUartMessage(msg);});
-	ChangeVerbosity(DebugInterface::MessageVerbosity::DEBUG_MSG);
 }
 
 ModemInterface::~ModemInterface(){
