@@ -11,13 +11,14 @@
 #include <stdint.h>
 #include <functional>
 #include <string>
+#include "RTOSWrappers/TaskWrapper.h"
 
 namespace HAL {
 namespace Devices {
 namespace Communication {
 namespace Interfaces {
 
-class UartCommunicationInterface {
+class UartCommunicationInterface : public HAL::RtosWrappers::TaskWrapper {
 public:
 	enum BaudRates {
 		BAUD_4800 = 4800,
@@ -37,7 +38,9 @@ public:
 		UART_6
 	};
 
-UartCommunicationInterface(BaudRates baud_rate, UartNumber uart_number) {
+UartCommunicationInterface( BaudRates baud_rate, UartNumber uart_number, const std::string &task_name,
+							uint16_t stack_size, void *const parameters, int priority) 
+						    : TaskWrapper(task_name, stack_size, parameters, priority) {
 }
 
 ~UartCommunicationInterface() {

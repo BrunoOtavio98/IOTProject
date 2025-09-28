@@ -36,7 +36,8 @@ class QueueWrapper;
 namespace HAL {
 namespace DebugController {
 
-class DebugController : public HAL::RtosWrappers::TaskWrapper {
+class DebugController : public HAL::RtosWrappers::TaskWrapper,
+						public DebugInterface {
  public:
 	DebugController(std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication);
 	virtual ~DebugController();
@@ -59,10 +60,10 @@ class DebugController : public HAL::RtosWrappers::TaskWrapper {
 private:
 	static const int kBufferSize = 1024;
 
-	struct DebugData {
+	typedef struct {
 		DebugInterface::MessageVerbosity msg_verbosity;
-		char msg[30];
-		char module_name[10];
+		char msg[60];
+		char module_name[15];
 	}DataToLog;
 
 	std::string MessageTypeToStr(const DebugInterface::MessageVerbosity &verbosity);

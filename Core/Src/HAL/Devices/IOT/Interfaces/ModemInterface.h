@@ -11,6 +11,7 @@
 #include "DebugController/DebugInterface.h"
 
 #include "RTOSWrappers/TaskWrapper.h"
+#include "RTOSWrappers/QueueWrapper.h"
 
 #include <memory>
 #include <functional>
@@ -35,6 +36,12 @@ class DebugController;
 }
 
 namespace HAL {
+namespace RtosWrappers {
+class QueueWrapper;
+}
+}
+
+namespace HAL {
 namespace Devices {
 namespace IOT {
 namespace Interfaces {
@@ -42,6 +49,7 @@ namespace Interfaces {
 class ModemInterface : public HAL::DebugController::DebugInterface, public HAL::RtosWrappers::TaskWrapper {
 public:
 	enum ATCommands {
+		AT,
 		ATE,
 		ATI,
 		ATL,
@@ -92,7 +100,18 @@ public:
 		CFUN,
 		CCLK,
 		CSIM,
-		CGREG
+		CGREG,
+		CSQ,
+		CGATT,
+		CSTT,
+		CIICR,
+		CIFSR,
+		CIPSTART,
+		CIPSEND,
+		CIPCLOSE,
+		CIPSHUT,
+
+		Invalid,
 	};
 
 	enum AtCommandTypes {
@@ -102,42 +121,78 @@ public:
 		Execute
 	};
 
+	enum AtReponses {
+		OK,
+		NO_CARRIER,
+		NO_DIALTONE,
+		BUSY,
+		NO_ANSWER
+	};
+
 	struct ATCommandConfiguration {
 		int16_t timeout;
-		std::function<void(const std::string&)> receive_callback;
+		std::function<bool(const std::string&, const ATCommands&, const AtCommandTypes&)> receive_callback;
 	};
 
 	ModemInterface(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communication,
 				   const std::shared_ptr<HAL::DebugController::DebugController> debug_controler);
     virtual ~ModemInterface();
     void RegisterCommand(const ATCommands &at_command, const ATCommandConfiguration &command_configuration);
-    bool SendCommand(const AtCommandTypes &command_type, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
-    void ReceiveCommandCallBack(const uint8_t *data, uint16_t data_size);
+    virtual bool SendCommand(const AtCommandTypes &command_type, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
     std::string EnumCommandToString(const ATCommands &command);
-    void ForwardDebugUartMessage(const std::string &msg);
+    void ReceiveCommandCallBack(const uint8_t *data, uint16_t data_size);
 
 protected:
-    void SendTestCommand(const std::string &command);
-    void SendReadCommand(const std::string &command);
-    void SendWriteCommand(const std::string &command, const std::list<std::string> &parameters);
-    void SendExecutionCommand(const std::string &command, const std::list<std::string> &parameters);
-
-	void Task(void *params) override;
-
-	bool task_should_run_;
-	std::map<ATCommands, ATCommandConfiguration> modem_commands_;
-private:
+	static const uint8_t kTaskDelayMs = 100;
 	static const int kRxBufferSize = 1024;
 
+	struct CurrentCmd {
+		char raw_msg[50];
+		ATCommands current_cmd;
+		AtCommandTypes current_cmd_type;
+	};
+
+	ModemInterface(const std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> &uart_communication,
+				   const std::shared_ptr<HAL::DebugController::DebugController> debug_controler,
+				   const std::shared_ptr<HAL::RtosWrappers::QueueWrapper> &queue_manager);
+
+	void SendTestCommand(const std::string &command, const ATCommands &command_to_execute);
+    void SendReadCommand(const std::string &command, const ATCommands &command_to_execute);
+    void SendWriteCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
+    void SendExecutionCommand(const std::string &command, const ATCommands &command_to_execute, const std::list<std::string> &parameters);
+
+	void Task(void *params);
+	virtual void ConnectStateMachine(const std::string &apn, const std::string &username, const std::string &password) {};
+	virtual void OnLoop() = 0;
 	bool CanProcessUartMessage();
 
-    std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication_;
+	bool task_should_run_;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
-    ATCommands current_command_executed_;
-
-	uint8_t rx_buffer_[kRxBufferSize];
+	std::string current_apn_;
+	std::string current_username_;
+	std::string current_password_;
+	std::map<ATCommands, ATCommandConfiguration> modem_commands_;
 	uint16_t rx_buffer_pos_;
 	bool is_isr_executing_;
+private:
+
+    void ForwardDebugUartMessage(const std::string &msg);
+	void SendAtMsgToQueue(const std::string &raw_cmd, const ATCommands &command_to_execute, const AtCommandTypes &current_cmd_type);
+	void CommandResponseDispatcher();
+	void SendCommandsQueued();
+	void CommandTimeoutMonitor();
+	bool IsModemWaitingForResponse();
+	void TimePassedControl();
+
+    std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> uart_communication_;
+    ATCommands current_command_executed_;
+	AtCommandTypes current_command_type_;
+	uint8_t rx_buffer_[kRxBufferSize];
+	std::shared_ptr<HAL::RtosWrappers::QueueWrapper> queue_manager_;
+	GenericQueueHandle send_cmd_queue_;
+	uint16_t time_passed_;
+	uint16_t current_timeout_to_monitor_;
+	bool tx_rx_are_sync_;
 };
 
 }

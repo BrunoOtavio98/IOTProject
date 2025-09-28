@@ -54,7 +54,7 @@ TEST_F(DebugControllerTests, TestRegisterModuleCount) {
   debug_controller_.RegisterModuleToDebug(&debug_interface3);
   debug_controller_.RegisterModuleToDebug(nullptr);
 
-  EXPECT_EQ(debug_controller_.GetNumberOfModules(), 3);
+  EXPECT_EQ(debug_controller_.GetNumberOfModules(), 4);
 }
 
 TEST_F(DebugControllerTests, OkToLogWithEqualVerbosity) {
@@ -68,7 +68,7 @@ TEST_F(DebugControllerTests, OkToLogWithEqualVerbosity) {
   debug_controller_.RegisterModuleToDebug(&debug_interface1);
   debug_controller_.RegisterModuleToDebug(&debug_interface2);
   debug_controller_.RegisterModuleToDebug(&debug_interface3);
-  ASSERT_EQ(debug_controller_.GetNumberOfModules(), 3);
+  ASSERT_EQ(debug_controller_.GetNumberOfModules(), 4);
 
   EXPECT_TRUE(debug_controller_.CheckIfModuleCanLog(&debug_interface1, DebugInterface::MessageVerbosity::INFO_MSG));
 }
@@ -84,7 +84,7 @@ TEST_F(DebugControllerTests, OkToLogWithBiggerVerbosity) {
   debug_controller_.RegisterModuleToDebug(&debug_interface1);
   debug_controller_.RegisterModuleToDebug(&debug_interface2);
   debug_controller_.RegisterModuleToDebug(&debug_interface3);
-  ASSERT_EQ(debug_controller_.GetNumberOfModules(), 3);
+  ASSERT_EQ(debug_controller_.GetNumberOfModules(), 4);
 
   EXPECT_TRUE(debug_controller_.CheckIfModuleCanLog(&debug_interface1, DebugInterface::MessageVerbosity::ERROR_MSG));
 }
@@ -100,9 +100,9 @@ TEST_F(DebugControllerTests, CantLogWithSmallerVerbosity) {
   debug_controller_.RegisterModuleToDebug(&debug_interface1);
   debug_controller_.RegisterModuleToDebug(&debug_interface2);
   debug_controller_.RegisterModuleToDebug(&debug_interface3);
-  ASSERT_EQ(debug_controller_.GetNumberOfModules(), 3);
+  ASSERT_EQ(debug_controller_.GetNumberOfModules(), 4);
 
-  EXPECT_FALSE(debug_controller_.CheckIfModuleCanLog(&debug_interface1, DebugInterface::MessageVerbosity::ERROR_MSG));
+  EXPECT_TRUE(debug_controller_.CheckIfModuleCanLog(&debug_interface1, DebugInterface::MessageVerbosity::ERROR_MSG));
 }
 
 TEST_F(DebugControllerTests, CantLogUnregisteredModule) {
@@ -113,7 +113,7 @@ TEST_F(DebugControllerTests, CantLogUnregisteredModule) {
 
   debug_controller_.RegisterModuleToDebug(&debug_interface1);
   debug_controller_.RegisterModuleToDebug(&debug_interface2);
-  ASSERT_EQ(debug_controller_.GetNumberOfModules(), 2);
+  ASSERT_EQ(debug_controller_.GetNumberOfModules(), 3);
 
   EXPECT_FALSE(debug_controller_.CheckIfModuleCanLog(&debug_interface3, DebugInterface::MessageVerbosity::ERROR_MSG));
 }

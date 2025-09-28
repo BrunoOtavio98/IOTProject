@@ -66,5 +66,12 @@ bool QueueWrapper::QueueReceiveFromISR(GenericQueueHandle queue, void *buffer, i
 	return false;
 }
 
+bool QueueWrapper::QueueReset(GenericQueueHandle queue) {
+#ifdef FREERTOS
+	return (xQueueReset(queue) == pdTRUE);	
+#endif
+	return false;
+}
+
 }
 }

@@ -10,41 +10,68 @@
 
 #include "Devices/Communication/STM32UartCommunication.h"
 #include "Devices/IOT/Interfaces/ModemInterface.h"
-#include "Devices/IOT/Modem/SIM7020E.h"
+#include "Devices/IOT/Modem/SIM800L.h"
 #include "DebugController/DebugController.h"
 #include "RTOSWrappers/TaskWrapperManager.h"
 
 #include "stm32f4xx_hal.h"
+#include "cmsis_os.h"
 
 using HAL::Devices::Communication::STM32UartCommunication;
 using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;
 using HAL::Devices::IOT::Interfaces::ModemInterface;
-using HAL::Devices::IOT::Modem::SIM7020Modem;
 using HAL::DebugController::DebugController;
 using HAL::RtosWrappers::TaskWrapperManager;
+using HAL::Devices::IOT::Modem::SIM800LModem;
 
 namespace HAL {
 namespace Boards {
 
-STM32Board::STM32Board() {
-	modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
-	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_5, "debug_uart_task");
-	debug_controller_ = std::make_shared<DebugController::DebugController>(debug_uart_communication_);
-
-	HAL_Init();
-	rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
-	rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
-	rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(debug_uart_communication_));
-	rtos_task_manager_->CreateTask(*debug_controller_);
+STM32Board::STM32Board() : 
+  TaskWrapper("STM32Board", 400, nullptr, 3),
+  DebugInterface("STM32Board") {
+  HAL_Init();
+  SystemClockConfig();
+  ChangeVerbosity(MessageVerbosity::ERROR_MSG);
 }
 
 STM32Board::~STM32Board() {
-
 }
 
+void STM32Board::Task(void *params) {
+
+	bool flag = false;
+	while(true){
+		if(flag == false) {
+
+			modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4);
+			debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_5);
+			debug_controller_ = std::make_shared<DebugController::DebugController>(debug_uart_communication_);
+	
+			ConfigureModem(selected_modem_);
+
+			rtos_task_manager_->CreateTask(*modem_uart_communication_);
+			rtos_task_manager_->CreateTask(*debug_uart_communication_);
+			rtos_task_manager_->CreateTask(*debug_controller_);
+
+			debug_controller_->RegisterModuleToDebug(this);
+			debug_controller_->PrintInfo(this, "Finishing creating modules\n", false);
+
+			flag = true;
+		}
+		TaskDelay(10000);
+	}
+  rtos_task_manager_->DeleteTask(*this);
+} 
+
 void STM32Board::InitPeripherals(AvailableModemInterfaces selected_modem) {
-	SystemClockConfig();
-	ConfigureModem(selected_modem);
+
+  rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
+
+  rtos_task_manager_->CreateTask(*this);
+  selected_modem_ = selected_modem;
+
+  osKernelStart();
 }
 
 void STM32Board::SystemClockConfig() {
@@ -87,13 +114,15 @@ void STM32Board::SystemClockConfig() {
 void STM32Board::ConfigureModem(AvailableModemInterfaces modem_interface) {
 
 	switch (modem_interface) {
-		case AvailableModemInterfaces::SIM_7020E:
-			modem_interface_ = std::make_unique<SIM7020Modem>(modem_uart_communication_, debug_controller_);
-      rtos_task_manager_->CreateTask(*modem_interface_);
-			break;
+    case AvailableModemInterfaces::SIM_800L:
+      modem_interface_ = std::make_unique<SIM800LModem>(modem_uart_communication_, debug_controller_);
 		default:
 			break;
 	}
+
+  if(modem_interface_.get() != nullptr) {
+      rtos_task_manager_->CreateTask(*modem_interface_);
+  }
 }
 
 void STM32Board::Error_Handler() {
