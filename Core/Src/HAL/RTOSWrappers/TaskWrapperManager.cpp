@@ -16,18 +16,18 @@ bool TaskWrapperManager::CreateTask(TaskWrapper &task)
 {
 
 #ifdef FREERTOS
-	TaskHandle_t task_handle_freertos = reinterpret_cast<TaskHandle_t>(task.task_handle_);
+	TaskHandle_t created_task_handle = nullptr;
 
-	if(task_handle_freertos != nullptr) {
-		if(xTaskCreate(task.ToStaticTask, task.GetTaskname().c_str(), task.GetStackSize(), &task, task.GetPriority(), &task_handle_freertos) == pdPASS) {
-			return true;
-		} else {
-			return false;
-		}
-
-	} else {
+	if(xTaskCreate(task.ToStaticTask, task.GetTaskname().c_str(), task.GetStackSize(), &task, task.GetPriority(), &created_task_handle) == pdPASS)
+	{	
+		task.task_handle_ = reinterpret_cast<GenericTaskHandle>(created_task_handle);
+		return true;
+	} 
+	else 
+	{
 		return false;
 	}
+
 #endif
 
     return true;
