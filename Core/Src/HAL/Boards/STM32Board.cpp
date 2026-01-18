@@ -19,6 +19,7 @@
 #include "RTOSWrappers/TaskWrapperManager.h"
 #include "DebugController/DebugInterface.h"
 #include "Devices/Position/GNSSInterface.h"
+#include "Storage/StorageInterface.h"
 
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
@@ -32,7 +33,8 @@ using HAL::DebugController::DebugInterface;
 using HAL::RtosWrappers::TaskWrapperManager;
 using HAL::Devices::Position::GNSSInterface;
 using HAL::Storage::STM32SD;
-using HAL::Storage::STM32SD;
+using HAL::Storage::StorageInterface;
+
 
 namespace HAL {
 namespace Boards {
@@ -40,7 +42,6 @@ namespace Boards {
 STM32Board::STM32Board() : 
   TaskWrapper("STM32Board", 400, nullptr, 3) 
 {
-
 	//modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
 	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_5, "debug_uart_task");
   gnss_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_9600, UartCommunicationInterface::UartNumber::UART_2, "modem_uart_task");
@@ -107,7 +108,7 @@ void STM32Board::SystemClockConfig() {
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-	Error_Handler();
+	  Error_Handler();
   }
 
   /** Initializes the CPU, AHB and APB buses clocks
@@ -121,7 +122,7 @@ void STM32Board::SystemClockConfig() {
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
-	Error_Handler();
+	  Error_Handler();
   }
 }
 

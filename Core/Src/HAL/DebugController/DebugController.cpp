@@ -164,7 +164,6 @@ bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInt
 	auto it = std::find(list_of_modules_.begin(), list_of_modules_.end(), module);
 	if(it != list_of_modules_.end()) 
 	{
-		DebugInterface *module_interface = *it;
 		if(desired_verbosity > system_verbosity_) 
 		{
 			return false;

@@ -10,14 +10,17 @@
 
 #include "BoardInterface.h"
 #include "RTOSWrappers/TaskWrapper.h"
+#include "DebugController/DebugInterface.h"
 
 using HAL::RtosWrappers::TaskWrapper;
+using HAL::DebugController::DebugInterface;
 
 namespace HAL {
 namespace Boards {
 
 class STM32Board : public BoardInterface,
-				public TaskWrapper{
+				   public TaskWrapper,
+				   public DebugInterface {
 public:
 	STM32Board();
 	virtual ~STM32Board();

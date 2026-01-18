@@ -17,7 +17,7 @@ public:
     bool InitStorage() override;
 
 private:
- SD_HandleTypeDef hsd;
+ SD_HandleTypeDef hsd_;
 
 };
 }
