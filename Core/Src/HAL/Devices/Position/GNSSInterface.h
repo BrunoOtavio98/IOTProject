@@ -46,7 +46,7 @@ public:
         DEAD_RECKONING
     };
 
-    enum NMEAMessage
+    enum NMEAMessageType
     {
         GGA,
         GLL,
@@ -54,7 +54,8 @@ public:
         GSV,
         MSS,
         RMC,
-        VTG
+        VTG,
+        MAXMessagesTypes
     };
 
     typedef struct
@@ -151,10 +152,16 @@ public:
     ~GNSSInterface();
 
 protected:
+
+    using NMEAParserFunc = bool (*)(const std::string &);
+
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart_;
+    NMEAParserFunc NMEACallbacks[MAXMessagesTypes];
 
     void Task(void *params) override;
-    virtual bool ProcessNMEAMessage( const std::string &nmea_message ) = 0;
+    bool ProcessNMEAMessage( const std::string &nmea_message );
+    NMEAMessageType GetNMEAMessageType( const std::string &nmea_message );
+    NMEAMessageType ToMessagetypeFromStr( const std::string str_message_type );
 
 private:
     static const int kRxBufferSize = 256;
