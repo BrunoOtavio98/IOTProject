@@ -4,6 +4,7 @@
 #include <memory>
 #include <cstdint>
 #include <array>
+#include <functional>
 
 #include "RTOSWrappers/TaskWrapper.h"
 #include "DebugController/DebugInterface.h"
@@ -153,7 +154,7 @@ public:
 
 protected:
 
-    using NMEAParserFunc = bool (*)(const std::string &);
+    using NMEAParserFunc = std::function<bool(const std::string &)>;
 
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart_;
     NMEAParserFunc NMEACallbacks[MAXMessagesTypes];
@@ -162,6 +163,15 @@ protected:
     bool ProcessNMEAMessage( const std::string &nmea_message );
     NMEAMessageType GetNMEAMessageType( const std::string &nmea_message );
     NMEAMessageType ToMessagetypeFromStr( const std::string str_message_type );
+    void RegisterCallback( NMEAMessageType message_type, NMEAParserFunc nmea_func );
+
+    bool GGACallback(const std::string &nmea_messages);
+    bool GLLCallback(const std::string &nmea_messages);
+    bool GSACallback(const std::string &nmea_messages);
+    bool GSVCallback(const std::string &nmea_messages);
+    bool MSSCallback(const std::string &nmea_messages);
+    bool RMCCallback(const std::string &nmea_messages);
+    bool VTGCallback(const std::string &nmea_messages);
 
 private:
     static const int kRxBufferSize = 256;

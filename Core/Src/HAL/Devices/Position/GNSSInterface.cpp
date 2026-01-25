@@ -27,6 +27,13 @@ GNSSInterface::GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Inter
 	for (auto &cb : NMEACallbacks)
 		cb = nullptr;
 
+	RegisterCallback( GNSSInterface::NMEAMessageType::GGA, [this](const std::string &msg){ return this->GGACallback(msg); } );
+	RegisterCallback( GNSSInterface::NMEAMessageType::GLL, [this](const std::string &msg){ return this->GLLCallback(msg); } );
+	RegisterCallback( GNSSInterface::NMEAMessageType::GSA, [this](const std::string &msg){ return this->GSACallback(msg); } );
+	RegisterCallback( GNSSInterface::NMEAMessageType::GSV, [this](const std::string &msg){ return this->GSVCallback(msg); } );
+	RegisterCallback( GNSSInterface::NMEAMessageType::MSS, [this](const std::string &msg){ return this->MSSCallback(msg); } );
+	RegisterCallback( GNSSInterface::NMEAMessageType::RMC, [this](const std::string &msg){ return this->RMCCallback(msg); } );
+	RegisterCallback( GNSSInterface::NMEAMessageType::VTG, [this](const std::string &msg){ return this->VTGCallback(msg); } );
 }
 
 GNSSInterface::~GNSSInterface()
@@ -34,14 +41,27 @@ GNSSInterface::~GNSSInterface()
 
 }
 
+void GNSSInterface::RegisterCallback( NMEAMessageType message_type, NMEAParserFunc nmea_func )
+{
+	if( message_type >= GNSSInterface::NMEAMessageType::MAXMessagesTypes )
+	{
+		return;
+	}
+
+	NMEACallbacks[message_type] = nmea_func;
+}
+
 void GNSSInterface::Task(void *params)
 {
 	while(1)
 	{
 		if( CanProcessMessage() )
-		{	
+		{
 			std::string nmea_message( reinterpret_cast<char*>(uart_buffer_receive_), rx_buffer_pos_ );
 			ProcessNMEAMessage(nmea_message);
+
+			rx_buffer_pos_ = 0;
+			std::memset(uart_buffer_receive_, 0, kRxBufferSize);
 		}
 
 		TaskDelay(200);
@@ -50,8 +70,6 @@ void GNSSInterface::Task(void *params)
 
 bool GNSSInterface::ProcessNMEAMessage( const std::string &nmea_message )
 {
-	bool status = true;
-
 	if( nmea_message.size() == 0 )
 	{
 		return false;
@@ -126,6 +144,41 @@ GNSSInterface::NMEAMessageType GNSSInterface::ToMessagetypeFromStr( const std::s
 	}
 }
 
+bool GNSSInterface::GGACallback(const std::string &nmea_msg)
+{
+	return true;
+}
+
+bool GNSSInterface::GLLCallback(const std::string &nmea_msg)
+{
+	return true;
+}
+
+bool GNSSInterface::GSACallback(const std::string &nmea_messages)
+{
+	return true;
+}
+
+bool GNSSInterface::GSVCallback(const std::string &nmea_msg)
+{
+	return true;
+}
+
+bool GNSSInterface::MSSCallback(const std::string &nmea_msg)
+{
+	return true;
+}
+
+bool GNSSInterface::RMCCallback(const std::string &nmea_msg)
+{
+	return true;
+}
+
+bool GNSSInterface::VTGCallback(const std::string &nmea_msg)
+{
+	return true;
+}
+
 void GNSSInterface::UartCallBack( const uint8_t *data, uint16_t size )
 {
 	if(data == nullptr)
@@ -145,7 +198,10 @@ void GNSSInterface::UartCallBack( const uint8_t *data, uint16_t size )
 }
 
 bool GNSSInterface::CanProcessMessage()
-{
+{	
+	if(rx_buffer_pos_ == 0)
+		return false;
+
 	return (((uart_buffer_receive_[rx_buffer_pos_ - 1] == '\n' || uart_buffer_receive_[rx_buffer_pos_ - 1] == '\r') ) 
 			  && is_callback_executing_ == false);
 }
