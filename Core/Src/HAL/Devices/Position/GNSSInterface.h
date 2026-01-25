@@ -165,13 +165,13 @@ protected:
     NMEAMessageType ToMessagetypeFromStr( const std::string str_message_type );
     void RegisterCallback( NMEAMessageType message_type, NMEAParserFunc nmea_func );
 
-    bool GGACallback(const std::string &nmea_messages);
-    bool GLLCallback(const std::string &nmea_messages);
-    bool GSACallback(const std::string &nmea_messages);
-    bool GSVCallback(const std::string &nmea_messages);
-    bool MSSCallback(const std::string &nmea_messages);
-    bool RMCCallback(const std::string &nmea_messages);
-    bool VTGCallback(const std::string &nmea_messages);
+    virtual bool GGACallback(const std::string &nmea_messages);
+    virtual bool GLLCallback(const std::string &nmea_messages);
+    virtual bool GSACallback(const std::string &nmea_messages);
+    virtual bool GSVCallback(const std::string &nmea_messages);
+    virtual bool MSSCallback(const std::string &nmea_messages);
+    virtual bool RMCCallback(const std::string &nmea_messages);
+    virtual bool VTGCallback(const std::string &nmea_messages);
 
 private:
     static const int kRxBufferSize = 256;
