@@ -274,7 +274,79 @@ bool GNSSInterface::GGACallback(const std::string &nmea_msg)
 
 bool GNSSInterface::GLLCallback(const std::string &nmea_msg)
 {
-	return true;
+    GNSSInterface::NMEA_GLL gll_msg = {0};
+    StringManipulation strManipulation;
+    std::vector<std::string> fields = strManipulation.SplitString(nmea_msg, ',');
+    
+    if( fields.size() < 6 )
+    {
+        std::cout << "Wrong number of fields for GLL\n";
+        return false;
+    }
+
+    if( !ValidateCheckSum(nmea_msg) )
+    {
+        std::cout << "Wrong checksum for GLL\n";
+        return false;
+    }
+
+    // Field 0: Message ID
+    if( fields[0].size() >= kMaxMessageIdSize )
+        return false;
+    std::strncpy(reinterpret_cast<char*>(gll_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+
+    // Field 1: Latitude
+    if( !fields[1].empty() )
+    {
+        try {
+            gll_msg.latitude = std::stof(fields[1]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 2: N/S Indicator
+    if( !fields[2].empty() )
+    {
+        if( fields[2].size() != 1 || (fields[2][0] != 'N' && fields[2][0] != 'S') )
+            return false;
+        gll_msg.NSIndicator = fields[2][0];
+    }
+
+    // Field 3: Longitude
+    if( !fields[3].empty() )
+    {
+        try {
+            gll_msg.longitude = std::stof(fields[3]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 4: E/W Indicator
+    if( !fields[4].empty() )
+    {
+        if( fields[4].size() != 1 || (fields[4][0] != 'E' && fields[4][0] != 'W') )
+            return false;
+        gll_msg.EWIndicator = fields[4][0];
+    }
+
+    // Field 5: UTC Time
+    if( !fields[5].empty() )
+    {   
+        std::cout << "utc len: " << fields[5].size() << std::endl;
+        if( fields[5].size() != 6 )
+            return false;
+        try {
+            gll_msg.hour = std::stoi(fields[5].substr(0, 2));
+            gll_msg.minutes = std::stoi(fields[5].substr(2, 2));
+            gll_msg.seconds = std::stoi(fields[5].substr(4, 2));
+        } catch (...) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool GNSSInterface::GSACallback(const std::string &nmea_messages)

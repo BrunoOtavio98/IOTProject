@@ -84,9 +84,9 @@ public:
         char NSIndicator;
         float longitude;
         char EWIndicator;
-        float utcTime;
-        bool Status;
-        char Mode;
+        uint8_t hour;
+        uint8_t minutes;
+        uint8_t seconds; 
         std::array<char, kMaxCheckSumSize> checkSum;
     } NMEA_GLL;
 
