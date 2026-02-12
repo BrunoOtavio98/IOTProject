@@ -5,6 +5,7 @@
 #include "Devices/Communication/Interfaces/UartCommunicationInterface.h"
 
 #include <cstring>
+#include <iostream>
 
 using HAL::Utils::StringManipulation;
 
@@ -145,8 +146,130 @@ GNSSInterface::NMEAMessageType GNSSInterface::ToMessagetypeFromStr( const std::s
 }
 
 bool GNSSInterface::GGACallback(const std::string &nmea_msg)
-{
-	return true;
+{	
+  	GNSSInterface::NMEA_GGA gga_msg = {0};
+    StringManipulation strManipulation;
+    std::vector<std::string> fields = strManipulation.SplitString(nmea_msg, ',');
+    if( fields.size() < 15 )
+    {	
+		std::cout << "Wrong number of fields\n";
+        return false;
+    }
+
+    if( !ValidateCheckSum(nmea_msg) )
+    {	
+		std::cout << "wrong checksum\n";
+        return false;
+    }
+
+    // Field 0: Message ID ($GPGGA)
+    if( fields[0].size() >= kMaxMessageIdSize )
+        return false;
+    std::strncpy(reinterpret_cast<char*>(gga_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+
+    // Field 1: UTC Time (HHMMSS.SS) - Optional
+    if( !fields[1].empty() )
+    {
+        if( fields[1].size() >= 9 )
+		{	
+			std::cout << "Wrong utc field size\n";
+            return false;
+		}
+        try {
+            gga_msg.hour = std::stoi(fields[1].substr(0, 2));
+            gga_msg.minutes = std::stoi(fields[1].substr(2, 2));
+            gga_msg.seconds = std::stoi(fields[1].substr(4, 2));
+        } catch (...) {
+			std::cout << "Failed at utc trycatch\n";
+            return false;
+        }
+    }
+
+    // Field 2: Latitude - Optional
+    if( !fields[2].empty() )
+    {
+        try {
+            gga_msg.latitude = std::stof(fields[2]);
+        } catch (...) {
+			std::cout << "failed at latitude trycatch\n";
+            return false;
+        }
+    }
+
+    // Field 3: N/S Indicator - Optional
+    if( !fields[3].empty() )
+    {
+        if( fields[3].size() != 1 || (fields[3][0] != 'N' && fields[3][0] != 'S') )
+            return false;
+        gga_msg.NSIndicator = fields[3][0];
+    }
+
+    // Field 4: Longitude - Optional
+    if( !fields[4].empty() )
+    {
+        try {
+            gga_msg.longitude = std::stof(fields[4]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 5: E/W Indicator - Optional
+    if( !fields[5].empty() )
+    {
+        if( fields[5].size() != 1 || (fields[5][0] != 'E' && fields[5][0] != 'W') )
+            return false;
+        gga_msg.EWIndicator = fields[5][0];
+    }
+
+    // Field 6: Position Fix Indicator - Optional
+    if( !fields[6].empty() )
+    {
+        try {
+            uint8_t fix_indicator = std::stoi(fields[6]);
+            if( fix_indicator >= DEAD_RECKONING + 1 )
+                return false;
+            gga_msg.positionFixIndicator = static_cast<PositionFixIndicator>(fix_indicator);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 7: Number of Satellites (skipping for now)
+
+    // Field 8: HDOP (Horizontal Dilution of Precision) - Optional
+    if( !fields[8].empty() )
+    {
+        try {
+            gga_msg.hdop = std::stof(fields[8]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 9: MSL Altitude - Optional
+    if( !fields[9].empty() )
+    {
+        try {
+            gga_msg.mslAltitude = std::stof(fields[9]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 10: Altitude Units (M = meters, skip validation)
+
+    // Field 11: Geoid Separation - Optional
+    if( !fields[11].empty() )
+    {
+        try {
+            gga_msg.geoidSeparation = std::stof(fields[11]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool GNSSInterface::GLLCallback(const std::string &nmea_msg)
@@ -204,6 +327,54 @@ bool GNSSInterface::CanProcessMessage()
 
 	return (((uart_buffer_receive_[rx_buffer_pos_ - 1] == '\n' || uart_buffer_receive_[rx_buffer_pos_ - 1] == '\r') ) 
 			  && is_callback_executing_ == false);
+}
+
+bool GNSSInterface::ValidateCheckSum( const std::string &nmea_msg )
+{
+    size_t start = nmea_msg.find('$');
+    size_t end = nmea_msg.find('*');
+    
+    if( start == std::string::npos || end == std::string::npos )
+    {	
+		std::cout << "wrong start and end\n";
+        return false;
+    }
+
+    start++; // Move past the '$'
+    
+    // XOR all characters between $ and *
+    uint8_t calculated_checksum = 0;
+    for( size_t i = start; i < end; i++ )
+    {
+        calculated_checksum ^= static_cast<uint8_t>(nmea_msg[i]);
+    }
+
+    // Extract checksum from message (after *)
+    std::string received_checksum_str = nmea_msg.substr(end + 1);
+
+    // Remove any trailing characters like \r or \n
+    size_t checksum_end = received_checksum_str.find_first_not_of("0123456789ABCDEFabcdef");
+    if( checksum_end != std::string::npos )
+    {
+        received_checksum_str = received_checksum_str.substr(0, checksum_end);
+    }
+
+    if( received_checksum_str.empty() )
+    {	
+		std::cout << "received checksum empty\n";
+        return false;
+    }
+
+    // Convert received checksum from hex string to uint8_t
+    try {
+        uint8_t received_checksum = static_cast<uint8_t>(std::stoi(received_checksum_str, nullptr, 16));
+        
+		std::cout << "received: " << static_cast<int>(received_checksum) << " calculated: " << static_cast<int>(calculated_checksum) << std::endl;
+		return calculated_checksum == received_checksum;
+    } catch (...) {
+		std::cout << "failed on converting checksum\n";
+        return false;
+    }
 }
 
 }

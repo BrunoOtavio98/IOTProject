@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <array>
 #include <functional>
+#include <atomic>
 
 #include "RTOSWrappers/TaskWrapper.h"
 #include "DebugController/DebugInterface.h"
@@ -62,7 +63,9 @@ public:
     typedef struct
     {
         std::array<char, kMaxMessageIdSize> messageID;
-        float utcTime;
+        uint8_t hour;
+        uint8_t minutes;
+        uint8_t seconds;
         float latitude;
         char  NSIndicator;
         float longitude;
@@ -152,6 +155,14 @@ public:
     GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart );
     ~GNSSInterface();
 
+    void RegisterCallbackToReceiveGGA( std::function<NMEA_GGA>(void));
+    void RegisterCallbackToReceiveGLL( std::function<NMEA_GLL>(void));
+    void RegisterCallbackToReceiveGSA( std::function<NMEA_GSA>(void));
+    void RegisterCallbackToReceiveGSV( std::function<NMEA_GSV>(void));
+    void RegisterCallbackToReceiveMSS( std::function<NMEA_MSS>(void));
+    void RegisterCallbackToReceiveRMC( std::function<NMEA_RMC>(void));
+    void RegisterCallbackToReceiveVTG( std::function<NMEA_VTG>(void));
+
 protected:
 
     using NMEAParserFunc = std::function<bool(const std::string &)>;
@@ -163,6 +174,8 @@ protected:
     bool ProcessNMEAMessage( const std::string &nmea_message );
     NMEAMessageType GetNMEAMessageType( const std::string &nmea_message );
     NMEAMessageType ToMessagetypeFromStr( const std::string str_message_type );
+    bool ValidateCheckSum( const std::string &nmea_msg );
+    
     void RegisterCallback( NMEAMessageType message_type, NMEAParserFunc nmea_func );
 
     virtual bool GGACallback(const std::string &nmea_messages);
@@ -181,7 +194,7 @@ private:
 
     uint16_t rx_buffer_pos_;
     uint8_t uart_buffer_receive_[kRxBufferSize];
-    bool is_callback_executing_;
+    std::atomic<bool> is_callback_executing_;
 };
 
 }
