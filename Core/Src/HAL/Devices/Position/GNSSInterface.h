@@ -93,8 +93,8 @@ public:
     typedef struct 
     {
         std::array<char, kMaxMessageIdSize> messageID;
-        char mode1;
-        uint8_t mode2;
+        char modeSelection;
+        uint8_t mode;
         float pdop;
         float hdop;
         float vdop;
@@ -117,7 +117,7 @@ public:
     typedef struct
     {
         std::array<char, kMaxMessageIdSize> messageID;
-        uint8_t sinalStrength;
+        uint8_t signalStrength;
         uint8_t snr;
         float beaconFrequency;
         uint8_t beaconBitRate;
@@ -128,7 +128,9 @@ public:
     typedef struct 
     {
         std::array<char, kMaxMessageIdSize> messageID;
-        float utcTime;
+        uint8_t hour;
+        uint8_t minutes;
+        uint8_t seconds; 
         bool Status;
         float latitude;
         char NSIndicator;
@@ -136,7 +138,9 @@ public:
         char EWIndicator;
         float speedOverGround;
         float courseOverGround;
-        int date;
+        uint8_t day;
+        uint8_t month;
+        uint8_t year; 
         float magneticVariation;
         char mode;
         std::array<char, kMaxCheckSumSize> checkSum;
@@ -145,8 +149,8 @@ public:
     typedef struct
     {
         std::array<char, kMaxMessageIdSize> messageID;
-        float courseTrue;
-        float courseMagnetic;
+        float trueTrack;
+        float magneticTrack;
         float speedKnots;
         float speedKmh;
         std::array<char, kMaxCheckSumSize> checkSum;

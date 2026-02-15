@@ -175,10 +175,14 @@ bool GNSSInterface::GGACallback(const std::string &nmea_msg)
 			std::cout << "Wrong utc field size\n";
             return false;
 		}
-        try {
+        try 
+        {
             gga_msg.hour = std::stoi(fields[1].substr(0, 2));
             gga_msg.minutes = std::stoi(fields[1].substr(2, 2));
             gga_msg.seconds = std::stoi(fields[1].substr(4, 2));
+        }
+        catch (...) 
+        {
         } catch (...) {
 			std::cout << "Failed at utc trycatch\n";
             return false;
@@ -188,9 +192,12 @@ bool GNSSInterface::GGACallback(const std::string &nmea_msg)
     // Field 2: Latitude - Optional
     if( !fields[2].empty() )
     {
-        try {
+        try
+        {
             gga_msg.latitude = std::stof(fields[2]);
-        } catch (...) {
+        }
+        catch (...) 
+        {
 			std::cout << "failed at latitude trycatch\n";
             return false;
         }
@@ -207,9 +214,12 @@ bool GNSSInterface::GGACallback(const std::string &nmea_msg)
     // Field 4: Longitude - Optional
     if( !fields[4].empty() )
     {
-        try {
+        try 
+        {
             gga_msg.longitude = std::stof(fields[4]);
-        } catch (...) {
+        } 
+        catch (...)
+        {
             return false;
         }
     }
@@ -225,12 +235,15 @@ bool GNSSInterface::GGACallback(const std::string &nmea_msg)
     // Field 6: Position Fix Indicator - Optional
     if( !fields[6].empty() )
     {
-        try {
+        try 
+        {
             uint8_t fix_indicator = std::stoi(fields[6]);
             if( fix_indicator >= DEAD_RECKONING + 1 )
                 return false;
             gga_msg.positionFixIndicator = static_cast<PositionFixIndicator>(fix_indicator);
-        } catch (...) {
+        } 
+        catch (...) 
+        {
             return false;
         }
     }
@@ -240,9 +253,12 @@ bool GNSSInterface::GGACallback(const std::string &nmea_msg)
     // Field 8: HDOP (Horizontal Dilution of Precision) - Optional
     if( !fields[8].empty() )
     {
-        try {
+        try
+        {
             gga_msg.hdop = std::stof(fields[8]);
-        } catch (...) {
+        } 
+        catch (...)
+        {
             return false;
         }
     }
@@ -250,9 +266,12 @@ bool GNSSInterface::GGACallback(const std::string &nmea_msg)
     // Field 9: MSL Altitude - Optional
     if( !fields[9].empty() )
     {
-        try {
+        try 
+        {
             gga_msg.mslAltitude = std::stof(fields[9]);
-        } catch (...) {
+        } 
+        catch (...) 
+        {
             return false;
         }
     }
@@ -262,9 +281,12 @@ bool GNSSInterface::GGACallback(const std::string &nmea_msg)
     // Field 11: Geoid Separation - Optional
     if( !fields[11].empty() )
     {
-        try {
+        try
+        {
             gga_msg.geoidSeparation = std::stof(fields[11]);
-        } catch (...) {
+        } 
+        catch (...) 
+        {
             return false;
         }
     }
@@ -298,9 +320,12 @@ bool GNSSInterface::GLLCallback(const std::string &nmea_msg)
     // Field 1: Latitude
     if( !fields[1].empty() )
     {
-        try {
+        try 
+        {
             gll_msg.latitude = std::stof(fields[1]);
-        } catch (...) {
+        } 
+        catch (...)
+        {
             return false;
         }
     }
@@ -316,9 +341,12 @@ bool GNSSInterface::GLLCallback(const std::string &nmea_msg)
     // Field 3: Longitude
     if( !fields[3].empty() )
     {
-        try {
+        try 
+        {
             gll_msg.longitude = std::stof(fields[3]);
-        } catch (...) {
+        } 
+        catch (...) 
+        {
             return false;
         }
     }
@@ -337,11 +365,14 @@ bool GNSSInterface::GLLCallback(const std::string &nmea_msg)
         std::cout << "utc len: " << fields[5].size() << std::endl;
         if( fields[5].size() != 6 )
             return false;
-        try {
+        try 
+        {
             gll_msg.hour = std::stoi(fields[5].substr(0, 2));
             gll_msg.minutes = std::stoi(fields[5].substr(2, 2));
             gll_msg.seconds = std::stoi(fields[5].substr(4, 2));
-        } catch (...) {
+        } 
+        catch (...) 
+        {
             return false;
         }
     }
@@ -349,9 +380,96 @@ bool GNSSInterface::GLLCallback(const std::string &nmea_msg)
     return true;
 }
 
-bool GNSSInterface::GSACallback(const std::string &nmea_messages)
+bool GNSSInterface::GSACallback(const std::string &nmea_msg)
 {
-	return true;
+    GNSSInterface::NMEA_GSA gsa_msg = {0};
+    StringManipulation strManipulation;
+    std::vector<std::string> fields = strManipulation.SplitString(nmea_msg, ',');
+    
+    if( fields.size() < 18 )
+    {
+        return false;
+    }
+
+    if( !ValidateCheckSum(nmea_msg) )
+    {
+        return false;
+    }
+
+    // Field 0: Message ID
+    if( fields[0].size() >= kMaxMessageIdSize )
+    {   
+        return false;
+    }
+    std::strncpy(reinterpret_cast<char*>(gsa_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+
+    // Field 1: Mode Selection (A=Auto, M=Manual)
+    if( !fields[1].empty() )
+    {
+        if( fields[1].size() != 1 || (fields[1][0] != 'A' && fields[1][0] != 'M') )
+        {   
+            return false;
+        }
+        gsa_msg.modeSelection = fields[1][0];
+    }
+
+    // Field 2: Mode (1=Fix not available, 2=2D, 3=3D)
+    if( !fields[2].empty() )
+    {
+        try 
+        {
+            gsa_msg.mode = std::stoi(fields[2]);
+            if( gsa_msg.mode < 1 || gsa_msg.mode > 3 )
+            {
+                return false;
+            }
+        } 
+        catch (...) 
+        {
+            return false;
+        }
+    }
+
+    // Field 15: PDOP
+    if( !fields[15].empty() )
+    {
+        try 
+        {
+            gsa_msg.pdop = std::stof(fields[15]);
+        }
+        catch (...) 
+        {
+            return false;
+        }
+    }
+
+    // Field 16: HDOP
+    if( !fields[16].empty() )
+    {
+        try 
+        {
+            gsa_msg.hdop = std::stof(fields[16]);
+        }
+        catch (...) 
+        {
+            return false;
+        }
+    }
+
+    // Field 17: VDOP
+    if( !fields[17].empty() )
+    {
+        try 
+        {
+            gsa_msg.vdop = std::stof(fields[17]);
+        } 
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool GNSSInterface::GSVCallback(const std::string &nmea_msg)
