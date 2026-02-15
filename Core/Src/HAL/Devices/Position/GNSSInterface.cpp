@@ -183,7 +183,6 @@ bool GNSSInterface::GGACallback(const std::string &nmea_msg)
         }
         catch (...) 
         {
-        } catch (...) {
 			std::cout << "Failed at utc trycatch\n";
             return false;
         }
@@ -525,7 +524,120 @@ bool GNSSInterface::MSSCallback(const std::string &nmea_msg)
 
 bool GNSSInterface::RMCCallback(const std::string &nmea_msg)
 {
-	return true;
+    GNSSInterface::NMEA_RMC rmc_msg = {0};
+    StringManipulation strManipulation;
+    std::vector<std::string> fields = strManipulation.SplitString(nmea_msg, ',');
+    
+    if( fields.size() < 12 )
+    {
+        std::cout << "Wrong number of fields for RMC\n";
+        return false;
+    }
+
+    if( !ValidateCheckSum(nmea_msg) )
+    {
+        std::cout << "Wrong checksum for RMC\n";
+        return false;
+    }
+
+    // Field 0: Message ID
+    if( fields[0].size() >= kMaxMessageIdSize )
+        return false;
+    std::strncpy(reinterpret_cast<char*>(rmc_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+
+    // Field 1: UTC Time
+    if( !fields[1].empty() )
+    {
+        if( fields[1].size() != 6 )
+            return false;
+        try {
+            rmc_msg.hour = std::stoi(fields[1].substr(0, 2));
+            rmc_msg.minutes = std::stoi(fields[1].substr(2, 2));
+            rmc_msg.seconds = std::stoi(fields[1].substr(4, 2));
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 2: Status (A=Valid, V=Invalid)
+    if( !fields[2].empty() )
+    {
+        if( fields[2].size() != 1 || (fields[2][0] != 'A' && fields[2][0] != 'V') )
+            return false;
+        rmc_msg.Status = (fields[2][0] == 'A');
+    }
+
+    // Field 3: Latitude
+    if( !fields[3].empty() )
+    {
+        try {
+            rmc_msg.latitude = std::stof(fields[3]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 4: N/S Indicator
+    if( !fields[4].empty() )
+    {
+        if( fields[4].size() != 1 || (fields[4][0] != 'N' && fields[4][0] != 'S') )
+            return false;
+        rmc_msg.NSIndicator = fields[4][0];
+    }
+
+    // Field 5: Longitude
+    if( !fields[5].empty() )
+    {
+        try {
+            rmc_msg.longitude = std::stof(fields[5]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 6: E/W Indicator
+    if( !fields[6].empty() )
+    {
+        if( fields[6].size() != 1 || (fields[6][0] != 'E' && fields[6][0] != 'W') )
+            return false;
+        rmc_msg.EWIndicator = fields[6][0];
+    }
+
+    // Field 7: Speed over ground (knots)
+    if( !fields[7].empty() )
+    {
+        try {
+            rmc_msg.speedOverGround = std::stof(fields[7]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 8: Course over ground (degrees)
+    if( !fields[8].empty() )
+    {
+        try {
+            rmc_msg.courseOverGround = std::stof(fields[8]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 9: Date (DDMMYY)
+    if( !fields[9].empty() )
+    {
+        if( fields[9].size() != 6 )
+            return false;
+        try {
+            rmc_msg.day = std::stoi(fields[9].substr(0, 2));
+            rmc_msg.month = std::stoi(fields[9].substr(2, 2));
+            rmc_msg.year = std::stoi(fields[9].substr(4, 2));
+        } catch (...) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool GNSSInterface::VTGCallback(const std::string &nmea_msg)

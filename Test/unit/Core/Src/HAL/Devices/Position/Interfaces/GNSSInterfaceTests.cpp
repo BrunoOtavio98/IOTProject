@@ -1090,6 +1090,169 @@ TEST_F(GNSSInterfaceTests, TestMSSCallbackBeaconMissing)
     EXPECT_TRUE(gnss.MSSCallback(msg));
 }
 
+TEST_F(GNSSInterfaceTests, TestRMCCallbackRealParsingValidMessage)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A";
+
+    EXPECT_TRUE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackInvalidChecksum)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*FF";
+
+    EXPECT_FALSE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackMissingChecksum)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394";
+
+    EXPECT_FALSE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackTooFewFields)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg = "$GPRMC,123519,A,4807.038,N*68";
+
+    EXPECT_FALSE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackStatusInvalid)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,123519,V,4807.038,N,01131.000,E,0.0,0.0,230394,003.1,W*71";
+
+    EXPECT_TRUE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackAllFieldsEmpty)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg = "$GPRMC,,,,,,,,,,,*67";
+
+    EXPECT_TRUE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackEmptyUTCTime)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*67";
+
+    EXPECT_TRUE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackInvalidUTCTimeLength)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,12351999,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A";
+
+    EXPECT_FALSE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackInvalidUTCTimeFormat)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,ABCDEF,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*60";
+
+    EXPECT_FALSE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackEmptyLatitude)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,123519,A,,N,01131.000,E,022.4,084.4,230394,003.1,W*74";
+
+    EXPECT_TRUE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackInvalidNSIndicator)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,123519,A,4807.038,X,01131.000,E,022.4,084.4,230394,003.1,W*7C";
+
+    EXPECT_FALSE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackInvalidEWIndicator)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,123519,A,4807.038,N,01131.000,X,022.4,084.4,230394,003.1,W*77";
+
+    EXPECT_FALSE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackEmptySpeedAndCourse)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,123519,A,4807.038,N,01131.000,E,,,230394,003.1,W*66";
+
+    EXPECT_TRUE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackInvalidSpeed)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,123519,A,4807.038,N,01131.000,E,ABC,084.4,230394,003.1,W*00";
+
+    EXPECT_FALSE(gnss.RMCCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestRMCCallbackInvalidDateFormat)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg =
+        "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,23AB94,003.1,W*6A";
+
+    EXPECT_FALSE(gnss.RMCCallback(msg));
+}
+
 }
 }
 }
