@@ -642,7 +642,68 @@ bool GNSSInterface::RMCCallback(const std::string &nmea_msg)
 
 bool GNSSInterface::VTGCallback(const std::string &nmea_msg)
 {
-	return true;
+    GNSSInterface::NMEA_VTG vtg_msg = {0};
+    StringManipulation strManipulation;
+    std::vector<std::string> fields = strManipulation.SplitString(nmea_msg, ',');
+    
+    if( fields.size() < 9 )
+    {
+        std::cout << "Wrong number of fields for VTG " << fields.size() << std::endl;
+        return false;
+    }
+
+    if( !ValidateCheckSum(nmea_msg) )
+    {
+        std::cout << "Wrong checksum for VTG\n";
+        return false;
+    }
+
+    // Field 0: Message ID
+    if( fields[0].size() >= kMaxMessageIdSize )
+        return false;
+    std::strncpy(reinterpret_cast<char*>(vtg_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+
+    // Field 1: True track made good (degrees)
+    if( !fields[1].empty() )
+    {
+        try {
+            vtg_msg.trueTrack = std::stof(fields[1]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 3: Magnetic track (degrees)
+    if( !fields[3].empty() )
+    {
+        try {
+            vtg_msg.magneticTrack = std::stof(fields[3]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 5: Speed over ground (knots)
+    if( !fields[5].empty() )
+    {
+        try {
+            vtg_msg.speedKnots = std::stof(fields[5]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 7: Speed over ground (km/h)
+    if( !fields[7].empty() )
+    {
+        try {
+            vtg_msg.speedKmh = std::stof(fields[7]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void GNSSInterface::UartCallBack( const uint8_t *data, uint16_t size )
