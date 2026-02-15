@@ -473,7 +473,102 @@ bool GNSSInterface::GSACallback(const std::string &nmea_msg)
 
 bool GNSSInterface::GSVCallback(const std::string &nmea_msg)
 {
-	return true;
+    GNSSInterface::NMEA_GSV gsv_msg = {0};
+    StringManipulation strManipulation;
+    std::vector<std::string> fields = strManipulation.SplitString(nmea_msg, ',');
+    
+    if( fields.size() < 8 )
+    {
+        std::cout << "Wrong number of fields for GSV\n";
+        return false;
+    }
+
+    if( !ValidateCheckSum(nmea_msg) )
+    {
+        std::cout << "Wrong checksum for GSV\n";
+        return false;
+    }
+
+    // Field 0: Message ID
+    if( fields[0].size() >= kMaxMessageIdSize )
+        return false;
+    std::strncpy(reinterpret_cast<char*>(gsv_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+
+    // Field 1: Total number of messages
+    if( !fields[1].empty() )
+    {
+        try {
+            gsv_msg.numberOfMessages = std::stoi(fields[1]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 2: Message number
+    if( !fields[2].empty() )
+    {
+        try {
+            gsv_msg.messageNumber = std::stoi(fields[2]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 3: Total satellites in view
+    if( !fields[3].empty() )
+    {
+        try {
+            gsv_msg.satellitesInView = std::stoi(fields[3]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Fields 4-7: Satellite data (up to 4 satellites per message)
+    // for( int i = 0; i < 4 && (4 + i * 4 + 3) < fields.size(); i++ )
+    // {
+    //     // Satellite ID
+    //     if( !fields[4 + i * 4].empty() )
+    //     {
+    //         try {
+    //             gsv_msg.satellites[i].id = std::stoi(fields[4 + i * 4]);
+    //         } catch (...) {
+    //             return false;
+    //         }
+    //     }
+
+    //     // Elevation
+    //     if( !fields[5 + i * 4].empty() )
+    //     {
+    //         try {
+    //             gsv_msg.satellites[i].elevation = std::stoi(fields[5 + i * 4]);
+    //         } catch (...) {
+    //             return false;
+    //         }
+    //     }
+
+    //     // Azimuth
+    //     if( !fields[6 + i * 4].empty() )
+    //     {
+    //         try {
+    //             gsv_msg.satellites[i].azimuth = std::stoi(fields[6 + i * 4]);
+    //         } catch (...) {
+    //             return false;
+    //         }
+    //     }
+
+    //     // SNR (Signal-to-Noise Ratio)
+    //     if( !fields[7 + i * 4].empty() )
+    //     {
+    //         try {
+    //             gsv_msg.satellites[i].snr = std::stoi(fields[7 + i * 4]);
+    //         } catch (...) {
+    //             return false;
+    //         }
+    //     }
+    // }
+
+    return true;
 }
 
 bool GNSSInterface::MSSCallback(const std::string &nmea_msg)
