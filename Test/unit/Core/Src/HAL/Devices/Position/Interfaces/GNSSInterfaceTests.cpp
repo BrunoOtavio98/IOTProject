@@ -1030,6 +1030,66 @@ TEST_F(GNSSInterfaceTests, TestGSACallbackHighDilutionValues)
     EXPECT_TRUE(result);
 }
 
+TEST_F(GNSSInterfaceTests, TestMSSCallbackRealParsingValidMessage)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg = "$GPMSS,55,27,318.0,100*4A";
+
+    EXPECT_TRUE(gnss.MSSCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestMSSCallbackInvalidChecksum)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg = "$GPMSS,55,27,318.0,100*FF";
+
+    EXPECT_FALSE(gnss.MSSCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestMSSCallbackMissingChecksum)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg = "$GPMSS,55,27,318.0,100";
+
+    EXPECT_FALSE(gnss.MSSCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestMSSCallbackAllFieldsEmpty)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg = "$GPMSS,,,,*5A";
+
+    EXPECT_TRUE(gnss.MSSCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestMSSCallbackSSMissing)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg = "$GPMSS,,27,318.0,100*4A";
+
+    EXPECT_TRUE(gnss.MSSCallback(msg));
+}
+
+TEST_F(GNSSInterfaceTests, TestMSSCallbackBeaconMissing)
+{
+    auto uart = std::make_shared<MockUartCommunicationInterface>();
+    GNSSInterfaceRealHelper gnss(uart);
+
+    std::string msg = "$GPMSS,55,27,,100*6E";
+
+    EXPECT_TRUE(gnss.MSSCallback(msg));
+}
+
 }
 }
 }

@@ -479,7 +479,48 @@ bool GNSSInterface::GSVCallback(const std::string &nmea_msg)
 
 bool GNSSInterface::MSSCallback(const std::string &nmea_msg)
 {
-	return true;
+    GNSSInterface::NMEA_MSS mss_msg = {0};
+    StringManipulation strManipulation;
+    std::vector<std::string> fields = strManipulation.SplitString(nmea_msg, ',');
+    
+    if( fields.size() < 4 )
+    {
+        std::cout << "Wrong number of fields for MSS\n";
+        return false;
+    }
+
+    if( !ValidateCheckSum(nmea_msg) )
+    {
+        std::cout << "Wrong checksum for MSS\n";
+        return false;
+    }
+
+    // Field 0: Message ID
+    if( fields[0].size() >= kMaxMessageIdSize )
+        return false;
+    std::strncpy(reinterpret_cast<char*>(mss_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+
+    // Field 1: Signal Strength
+    if( !fields[1].empty() )
+    {
+        try {
+            mss_msg.signalStrength = std::stoi(fields[1]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    // Field 2: Signal-to-Noise Ratio
+    if( !fields[2].empty() )
+    {
+        try {
+            mss_msg.snr = std::stoi(fields[2]);
+        } catch (...) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool GNSSInterface::RMCCallback(const std::string &nmea_msg)
