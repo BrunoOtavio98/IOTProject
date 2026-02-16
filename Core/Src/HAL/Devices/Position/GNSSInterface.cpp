@@ -1,6 +1,5 @@
 #include "GNSSInterface.h"
 
-#include "NMEAParser.h"
 #include "Utils/StringManipulation.h"
 #include "Devices/Communication/Interfaces/UartCommunicationInterface.h"
 
@@ -25,6 +24,9 @@ GNSSInterface::GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Inter
                             nmea_parser_(std::make_unique<NMEAParser>())
 {
 	gnss_uart_->ListenRxIT([this](const uint8_t *data, uint16_t size){UartCallBack(data, size);});
+
+	active_buffer_.store(&buffer_a_);
+
 }
 
 GNSSInterface::~GNSSInterface()
@@ -43,7 +45,7 @@ void GNSSInterface::Task(void *params)
 
             if( nmea_parser_->ProcessNMEAMessage( nmea_message, nmea_data ) )
             {
-                // Update last received data;
+                UpdateGNSSData( nmea_data );
             }
 
 			rx_buffer_pos_ = 0;
@@ -52,6 +54,54 @@ void GNSSInterface::Task(void *params)
 
 		TaskDelay(200);
 	}
+}
+
+void GNSSInterface::UpdateGNSSData( NMEAParser::NMEA_Data &nmea_data )
+{
+	BasicGNSSData* active = active_buffer_.load(std::memory_order_acquire);
+    BasicGNSSData* inactive = (active == &buffer_a_) ? &buffer_b_ : &buffer_a_;
+
+	*inactive = *active;
+
+	switch( nmea_data.nmea_type )
+	{
+		case NMEAParser::GGA:
+			inactive->lat = nmea_data.payload_received.gga_data.latitude;
+			inactive->lon = nmea_data.payload_received.gga_data.longitude;
+			inactive->alt = nmea_data.payload_received.gga_data.mslAltitude;
+			inactive->hour = nmea_data.payload_received.gga_data.hour;
+			inactive->minutes = nmea_data.payload_received.gga_data.minutes;
+			inactive->seconds = nmea_data.payload_received.gga_data.seconds;
+			break;
+	
+		case NMEAParser::GSA:
+			inactive->pdop = nmea_data.payload_received.gsa_data.pdop;
+			inactive->hdop = nmea_data.payload_received.gsa_data.hdop;
+			inactive->vdop = nmea_data.payload_received.gsa_data.vdop;
+			break;
+
+		case NMEAParser::RMC:
+			inactive->year = nmea_data.payload_received.rmc_data.year;
+			inactive->month = nmea_data.payload_received.rmc_data.month;
+			inactive->day = nmea_data.payload_received.rmc_data.day;
+			break;
+
+		case NMEAParser::VTG:
+			inactive->speedKmh = nmea_data.payload_received.vtg_data.speedKmh;
+			inactive->courseDeg = nmea_data.payload_received.vtg_data.trueTrack;
+			break;
+		
+		default:
+			break;
+	}
+
+	active_buffer_.store(inactive, std::memory_order_release);
+}
+
+void GNSSInterface::GetUpdatedGnssData( BasicGNSSData &gnss_data )
+{
+	BasicGNSSData *current = active_buffer_.load(std::memory_order_acquire);
+	gnss_data = *current;
 }
 
 void GNSSInterface::UartCallBack( const uint8_t *data, uint16_t size )
