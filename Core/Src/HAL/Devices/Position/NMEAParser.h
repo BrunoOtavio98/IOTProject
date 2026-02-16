@@ -4,6 +4,7 @@
 #include <string>
 #include <array>
 #include <functional>
+#include <cstdint>
 
 namespace HAL
 {
@@ -138,7 +139,7 @@ public:
     typedef union
     {
         NMEA_GGA gga_data;
-        NMEA_GLL ggl_data;
+        NMEA_GLL gll_data;
         NMEA_GSA gsa_data;
         NMEA_GSV gsv_data;
         NMEA_MSS mss_data;
@@ -158,19 +159,19 @@ public:
     bool ProcessNMEAMessage( const std::string &nmea_message, NMEA_Data &data_received );
 
 protected:
-    using NMEAParserFunc = std::function<bool(const std::string &)>;
+    using NMEAParserFunc = std::function<bool(const std::string &, NMEA_Data &)>;
 
     NMEAParserFunc NMEACallbacks[NMEAParser::MAXMessagesTypes];
 
     void RegisterCallback( NMEAParser::NMEAMessageType message_type, NMEAParserFunc nmea_func );
 
-    virtual bool GGACallback(const std::string &nmea_messages);
-    virtual bool GLLCallback(const std::string &nmea_messages);
-    virtual bool GSACallback(const std::string &nmea_messages);
-    virtual bool GSVCallback(const std::string &nmea_messages);
-    virtual bool MSSCallback(const std::string &nmea_messages);
-    virtual bool RMCCallback(const std::string &nmea_messages);
-    virtual bool VTGCallback(const std::string &nmea_messages);
+    virtual bool GGACallback(const std::string &nmea_messages, NMEA_Data &parsed_data);
+    virtual bool GLLCallback(const std::string &nmea_messages, NMEA_Data &parsed_data);
+    virtual bool GSACallback(const std::string &nmea_messages, NMEA_Data &parsed_data);
+    virtual bool GSVCallback(const std::string &nmea_messages, NMEA_Data &parsed_data);
+    virtual bool MSSCallback(const std::string &nmea_messages, NMEA_Data &parsed_data);
+    virtual bool RMCCallback(const std::string &nmea_messages, NMEA_Data &parsed_data);
+    virtual bool VTGCallback(const std::string &nmea_messages, NMEA_Data &parsed_data);
     bool ValidateCheckSum( const std::string &nmea_msg );
 
     NMEAParser::NMEAMessageType GetNMEAMessageType( const std::string &nmea_message );

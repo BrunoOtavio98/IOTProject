@@ -18,13 +18,13 @@ NMEAParser::NMEAParser()
     for (auto &cb : NMEACallbacks)
     cb = nullptr;
 
-	RegisterCallback( NMEAParser::NMEAMessageType::GGA, [this](const std::string &msg){ return this->GGACallback(msg); } );
-	RegisterCallback( NMEAParser::NMEAMessageType::GLL, [this](const std::string &msg){ return this->GLLCallback(msg); } );
-	RegisterCallback( NMEAParser::NMEAMessageType::GSA, [this](const std::string &msg){ return this->GSACallback(msg); } );
-	RegisterCallback( NMEAParser::NMEAMessageType::GSV, [this](const std::string &msg){ return this->GSVCallback(msg); } );
-	RegisterCallback( NMEAParser::NMEAMessageType::MSS, [this](const std::string &msg){ return this->MSSCallback(msg); } );
-	RegisterCallback( NMEAParser::NMEAMessageType::RMC, [this](const std::string &msg){ return this->RMCCallback(msg); } );
-	RegisterCallback( NMEAParser::NMEAMessageType::VTG, [this](const std::string &msg){ return this->VTGCallback(msg); } );
+	RegisterCallback( NMEAParser::NMEAMessageType::GGA, [this](const std::string &msg, NMEA_Data &parsed_data){ return this->GGACallback(msg, parsed_data); } );
+	RegisterCallback( NMEAParser::NMEAMessageType::GLL, [this](const std::string &msg, NMEA_Data &parsed_data){ return this->GLLCallback(msg, parsed_data); } );
+	RegisterCallback( NMEAParser::NMEAMessageType::GSA, [this](const std::string &msg, NMEA_Data &parsed_data){ return this->GSACallback(msg, parsed_data); } );
+	RegisterCallback( NMEAParser::NMEAMessageType::GSV, [this](const std::string &msg, NMEA_Data &parsed_data){ return this->GSVCallback(msg, parsed_data); } );
+	RegisterCallback( NMEAParser::NMEAMessageType::MSS, [this](const std::string &msg, NMEA_Data &parsed_data){ return this->MSSCallback(msg, parsed_data); } );
+	RegisterCallback( NMEAParser::NMEAMessageType::RMC, [this](const std::string &msg, NMEA_Data &parsed_data){ return this->RMCCallback(msg, parsed_data); } );
+	RegisterCallback( NMEAParser::NMEAMessageType::VTG, [this](const std::string &msg, NMEA_Data &parsed_data){ return this->VTGCallback(msg, parsed_data); } );
 }
 
 NMEAParser::~NMEAParser()
@@ -60,7 +60,9 @@ bool NMEAParser::ProcessNMEAMessage( const std::string &nmea_message, NMEA_Data 
 		return false;
 	}
 
-	return NMEACallbacks[message_type](nmea_message);
+    data_received.nmea_type = message_type;
+
+	return NMEACallbacks[message_type](nmea_message, data_received);
 }
 
 NMEAParser::NMEAMessageType NMEAParser::GetNMEAMessageType( const std::string &nmea_message )
@@ -117,7 +119,7 @@ NMEAParser::NMEAMessageType NMEAParser::ToMessagetypeFromStr( const std::string 
 	}
 }
 
-bool NMEAParser::GGACallback(const std::string &nmea_msg)
+bool NMEAParser::GGACallback(const std::string &nmea_msg, NMEA_Data &parsed_data)
 {	
   	NMEAParser::NMEA_GGA gga_msg = {0};
     StringManipulation strManipulation;
@@ -135,9 +137,9 @@ bool NMEAParser::GGACallback(const std::string &nmea_msg)
     }
 
     // Field 0: Message ID ($GPGGA)
-    if( fields[0].size() >= kMaxMessageIdSize )
+    if( fields[0].size() >= NMEAParser::kMaxMessageIdSize )
         return false;
-    std::strncpy(reinterpret_cast<char*>(gga_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+    std::strncpy(reinterpret_cast<char*>(gga_msg.messageID.data()), fields[0].c_str(), NMEAParser::kMaxMessageIdSize - 1);
 
     // Field 1: UTC Time (HHMMSS.SS) - Optional
     if( !fields[1].empty() )
@@ -262,10 +264,11 @@ bool NMEAParser::GGACallback(const std::string &nmea_msg)
         }
     }
 
+    std::memcpy( &parsed_data.payload_received.gga_data, &gga_msg, sizeof(gga_msg) );
     return true;
 }
 
-bool NMEAParser::GLLCallback(const std::string &nmea_msg)
+bool NMEAParser::GLLCallback(const std::string &nmea_msg, NMEA_Data &parsed_data)
 {
     NMEAParser::NMEA_GLL gll_msg = {0};
     StringManipulation strManipulation;
@@ -284,9 +287,9 @@ bool NMEAParser::GLLCallback(const std::string &nmea_msg)
     }
 
     // Field 0: Message ID
-    if( fields[0].size() >= kMaxMessageIdSize )
+    if( fields[0].size() >= NMEAParser::kMaxMessageIdSize )
         return false;
-    std::strncpy(reinterpret_cast<char*>(gll_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+    std::strncpy(reinterpret_cast<char*>(gll_msg.messageID.data()), fields[0].c_str(), NMEAParser::kMaxMessageIdSize - 1);
 
     // Field 1: Latitude
     if( !fields[1].empty() )
@@ -348,10 +351,11 @@ bool NMEAParser::GLLCallback(const std::string &nmea_msg)
         }
     }
 
+    std::memcpy( &parsed_data.payload_received.gll_data, &gll_msg, sizeof(gll_msg) );
     return true;
 }
 
-bool NMEAParser::GSACallback(const std::string &nmea_msg)
+bool NMEAParser::GSACallback(const std::string &nmea_msg, NMEA_Data &parsed_data)
 {
     NMEAParser::NMEA_GSA gsa_msg = {0};
     StringManipulation strManipulation;
@@ -368,11 +372,11 @@ bool NMEAParser::GSACallback(const std::string &nmea_msg)
     }
 
     // Field 0: Message ID
-    if( fields[0].size() >= kMaxMessageIdSize )
+    if( fields[0].size() >= NMEAParser::kMaxMessageIdSize )
     {   
         return false;
     }
-    std::strncpy(reinterpret_cast<char*>(gsa_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+    std::strncpy(reinterpret_cast<char*>(gsa_msg.messageID.data()), fields[0].c_str(), NMEAParser::kMaxMessageIdSize - 1);
 
     // Field 1: Mode Selection (A=Auto, M=Manual)
     if( !fields[1].empty() )
@@ -440,10 +444,11 @@ bool NMEAParser::GSACallback(const std::string &nmea_msg)
         }
     }
 
+    std::memcpy( &parsed_data.payload_received.gsa_data, &gsa_msg, sizeof(gsa_msg) );
     return true;
 }
 
-bool NMEAParser::GSVCallback(const std::string &nmea_msg)
+bool NMEAParser::GSVCallback(const std::string &nmea_msg, NMEA_Data &parsed_data)
 {
     NMEAParser::NMEA_GSV gsv_msg = {0};
     StringManipulation strManipulation;
@@ -462,9 +467,9 @@ bool NMEAParser::GSVCallback(const std::string &nmea_msg)
     }
 
     // Field 0: Message ID
-    if( fields[0].size() >= kMaxMessageIdSize )
+    if( fields[0].size() >= NMEAParser::kMaxMessageIdSize )
         return false;
-    std::strncpy(reinterpret_cast<char*>(gsv_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+    std::strncpy(reinterpret_cast<char*>(gsv_msg.messageID.data()), fields[0].c_str(), NMEAParser::kMaxMessageIdSize - 1);
 
     // Field 1: Total number of messages
     if( !fields[1].empty() )
@@ -540,10 +545,11 @@ bool NMEAParser::GSVCallback(const std::string &nmea_msg)
     //     }
     // }
 
+    std::memcpy( &parsed_data.payload_received.gsv_data, &gsv_msg, sizeof(gsv_msg) );
     return true;
 }
 
-bool NMEAParser::MSSCallback(const std::string &nmea_msg)
+bool NMEAParser::MSSCallback(const std::string &nmea_msg, NMEA_Data &parsed_data)
 {
     NMEAParser::NMEA_MSS mss_msg = {0};
     StringManipulation strManipulation;
@@ -562,9 +568,9 @@ bool NMEAParser::MSSCallback(const std::string &nmea_msg)
     }
 
     // Field 0: Message ID
-    if( fields[0].size() >= kMaxMessageIdSize )
+    if( fields[0].size() >= NMEAParser::kMaxMessageIdSize )
         return false;
-    std::strncpy(reinterpret_cast<char*>(mss_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+    std::strncpy(reinterpret_cast<char*>(mss_msg.messageID.data()), fields[0].c_str(), NMEAParser::kMaxMessageIdSize - 1);
 
     // Field 1: Signal Strength
     if( !fields[1].empty() )
@@ -586,10 +592,11 @@ bool NMEAParser::MSSCallback(const std::string &nmea_msg)
         }
     }
 
+    std::memcpy( &parsed_data.payload_received.mss_data, &mss_msg, sizeof(mss_msg) );
     return true;
 }
 
-bool NMEAParser::RMCCallback(const std::string &nmea_msg)
+bool NMEAParser::RMCCallback(const std::string &nmea_msg, NMEA_Data &parsed_data)
 {
     NMEAParser::NMEA_RMC rmc_msg = {0};
     StringManipulation strManipulation;
@@ -608,9 +615,9 @@ bool NMEAParser::RMCCallback(const std::string &nmea_msg)
     }
 
     // Field 0: Message ID
-    if( fields[0].size() >= kMaxMessageIdSize )
+    if( fields[0].size() >= NMEAParser::kMaxMessageIdSize )
         return false;
-    std::strncpy(reinterpret_cast<char*>(rmc_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+    std::strncpy(reinterpret_cast<char*>(rmc_msg.messageID.data()), fields[0].c_str(), NMEAParser::kMaxMessageIdSize - 1);
 
     // Field 1: UTC Time
     if( !fields[1].empty() )
@@ -704,10 +711,11 @@ bool NMEAParser::RMCCallback(const std::string &nmea_msg)
         }
     }
 
+    std::memcpy( &parsed_data.payload_received.rmc_data, &rmc_msg, sizeof(rmc_msg) );
     return true;
 }
 
-bool NMEAParser::VTGCallback(const std::string &nmea_msg)
+bool NMEAParser::VTGCallback(const std::string &nmea_msg, NMEA_Data &parsed_data)
 {
     NMEAParser::NMEA_VTG vtg_msg = {0};
     StringManipulation strManipulation;
@@ -726,9 +734,9 @@ bool NMEAParser::VTGCallback(const std::string &nmea_msg)
     }
 
     // Field 0: Message ID
-    if( fields[0].size() >= kMaxMessageIdSize )
+    if( fields[0].size() >= NMEAParser::kMaxMessageIdSize )
         return false;
-    std::strncpy(reinterpret_cast<char*>(vtg_msg.messageID.data()), fields[0].c_str(), kMaxMessageIdSize - 1);
+    std::strncpy(reinterpret_cast<char*>(vtg_msg.messageID.data()), fields[0].c_str(), NMEAParser::kMaxMessageIdSize - 1);
 
     // Field 1: True track made good (degrees)
     if( !fields[1].empty() )
@@ -770,6 +778,7 @@ bool NMEAParser::VTGCallback(const std::string &nmea_msg)
         }
     }
 
+    std::memcpy( &parsed_data.payload_received.vtg_data, &vtg_msg, sizeof(vtg_msg) );
     return true;
 }
 
@@ -777,7 +786,7 @@ bool NMEAParser::ValidateCheckSum( const std::string &nmea_msg )
 {
     size_t start = nmea_msg.find('$');
     size_t end = nmea_msg.find('*');
-    
+
     if( start == std::string::npos || end == std::string::npos )
     {	
 		std::cout << "wrong start and end\n";
@@ -785,7 +794,7 @@ bool NMEAParser::ValidateCheckSum( const std::string &nmea_msg )
     }
 
     start++; // Move past the '$'
-    
+
     // XOR all characters between $ and *
     uint8_t calculated_checksum = 0;
     for( size_t i = start; i < end; i++ )

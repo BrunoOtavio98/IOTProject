@@ -41,7 +41,10 @@ void GNSSInterface::Task(void *params)
 		{
 			std::string nmea_message( reinterpret_cast<char*>(uart_buffer_receive_), rx_buffer_pos_ );
 
-            //nmea_parser_->ProcessNMEAMessage( nmea_message, nullptr );
+            if( nmea_parser_->ProcessNMEAMessage( nmea_message, nmea_data ) )
+            {
+                // Update last received data;
+            }
 
 			rx_buffer_pos_ = 0;
 			std::memset(uart_buffer_receive_, 0, kRxBufferSize);
