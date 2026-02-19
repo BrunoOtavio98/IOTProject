@@ -2,7 +2,6 @@
 
 #include "Utils/StringManipulation.h"
 
-#include <iostream>
 #include <cstring>
 
 using HAL::Utils::StringManipulation;
@@ -126,13 +125,11 @@ bool NMEAParser::GGACallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     std::vector<std::string> fields = strManipulation.SplitString(nmea_msg, ',');
     if( fields.size() < 15 )
     {	
-		std::cout << "Wrong number of fields\n";
         return false;
     }
 
     if( !ValidateCheckSum(nmea_msg) )
     {	
-		std::cout << "wrong checksum\n";
         return false;
     }
 
@@ -146,7 +143,6 @@ bool NMEAParser::GGACallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     {
         if( fields[1].size() >= 9 )
 		{	
-			std::cout << "Wrong utc field size\n";
             return false;
 		}
         try 
@@ -157,7 +153,6 @@ bool NMEAParser::GGACallback(const std::string &nmea_msg, NMEA_Data &parsed_data
         }
         catch (...) 
         {
-			std::cout << "Failed at utc trycatch\n";
             return false;
         }
     }
@@ -171,7 +166,6 @@ bool NMEAParser::GGACallback(const std::string &nmea_msg, NMEA_Data &parsed_data
         }
         catch (...) 
         {
-			std::cout << "failed at latitude trycatch\n";
             return false;
         }
     }
@@ -276,13 +270,11 @@ bool NMEAParser::GLLCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     
     if( fields.size() < 6 )
     {
-        std::cout << "Wrong number of fields for GLL\n";
         return false;
     }
 
     if( !ValidateCheckSum(nmea_msg) )
     {
-        std::cout << "Wrong checksum for GLL\n";
         return false;
     }
 
@@ -336,7 +328,6 @@ bool NMEAParser::GLLCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     // Field 5: UTC Time
     if( !fields[5].empty() )
     {   
-        std::cout << "utc len: " << fields[5].size() << std::endl;
         if( fields[5].size() != 6 )
             return false;
         try 
@@ -456,13 +447,11 @@ bool NMEAParser::GSVCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     
     if( fields.size() < 8 )
     {
-        std::cout << "Wrong number of fields for GSV\n";
         return false;
     }
 
     if( !ValidateCheckSum(nmea_msg) )
     {
-        std::cout << "Wrong checksum for GSV\n";
         return false;
     }
 
@@ -557,13 +546,11 @@ bool NMEAParser::MSSCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     
     if( fields.size() < 4 )
     {
-        std::cout << "Wrong number of fields for MSS\n";
         return false;
     }
 
     if( !ValidateCheckSum(nmea_msg) )
     {
-        std::cout << "Wrong checksum for MSS\n";
         return false;
     }
 
@@ -575,9 +562,12 @@ bool NMEAParser::MSSCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     // Field 1: Signal Strength
     if( !fields[1].empty() )
     {
-        try {
+        try
+        {
             mss_msg.signalStrength = std::stoi(fields[1]);
-        } catch (...) {
+        }
+        catch (...)
+        {
             return false;
         }
     }
@@ -585,9 +575,38 @@ bool NMEAParser::MSSCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     // Field 2: Signal-to-Noise Ratio
     if( !fields[2].empty() )
     {
-        try {
+        try 
+        {
             mss_msg.snr = std::stoi(fields[2]);
-        } catch (...) {
+        } 
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    // Field 3: Beacon frequency
+    if( !fields[3].empty() )
+    {
+        try
+        {
+            mss_msg.beaconFrequency = std::stoi(fields[3]);
+        } 
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    // Field 4: Beacon bit rate
+    if( !fields[4].empty() )
+    {
+        try 
+        {
+            mss_msg.beaconBitRate = std::stoi(fields[4]);
+        } 
+        catch (...) 
+        {
             return false;
         }
     }
@@ -604,13 +623,11 @@ bool NMEAParser::RMCCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     
     if( fields.size() < 12 )
     {
-        std::cout << "Wrong number of fields for RMC\n";
         return false;
     }
 
     if( !ValidateCheckSum(nmea_msg) )
     {
-        std::cout << "Wrong checksum for RMC\n";
         return false;
     }
 
@@ -711,6 +728,25 @@ bool NMEAParser::RMCCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
         }
     }
 
+    // Field 10: Magnetic variation
+    if( !fields[10].empty() )
+    {
+        try 
+        {
+            rmc_msg.magneticVariation = std::stof(fields[10]);
+        } 
+        catch (...) 
+        {
+            return false;
+        }
+    }
+
+    // Field 11: mode
+    if( !fields[11].empty() )
+    {
+        rmc_msg.mode = fields[11][0];
+    }
+
     std::memcpy( &parsed_data.payload_received.rmc_data, &rmc_msg, sizeof(rmc_msg) );
     return true;
 }
@@ -723,13 +759,11 @@ bool NMEAParser::VTGCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     
     if( fields.size() < 9 )
     {
-        std::cout << "Wrong number of fields for VTG " << fields.size() << std::endl;
         return false;
     }
 
     if( !ValidateCheckSum(nmea_msg) )
     {
-        std::cout << "Wrong checksum for VTG\n";
         return false;
     }
 
@@ -789,7 +823,6 @@ bool NMEAParser::ValidateCheckSum( const std::string &nmea_msg )
 
     if( start == std::string::npos || end == std::string::npos )
     {	
-		std::cout << "wrong start and end\n";
         return false;
     }
 
@@ -814,18 +847,14 @@ bool NMEAParser::ValidateCheckSum( const std::string &nmea_msg )
 
     if( received_checksum_str.empty() )
     {	
-		std::cout << "received checksum empty\n";
         return false;
     }
 
     // Convert received checksum from hex string to uint8_t
     try {
         uint8_t received_checksum = static_cast<uint8_t>(std::stoi(received_checksum_str, nullptr, 16));
-        
-		std::cout << "received: " << static_cast<int>(received_checksum) << " calculated: " << static_cast<int>(calculated_checksum) << std::endl;
 		return calculated_checksum == received_checksum;
     } catch (...) {
-		std::cout << "failed on converting checksum\n";
         return false;
     }
 }
