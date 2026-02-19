@@ -1,9 +1,7 @@
 #include "Devices/Position/NMEAParser.h"
 
 #include <gtest/gtest.h>
-
-#include "Core/Src/HAL/Devices/Communication/Interfaces/Mocks/MockUartCommunicationInterface.h"
-
+#include <gmock/gmock.h>
 
 namespace HAL 
 {
@@ -268,8 +266,40 @@ TEST_F(NMEAParserTests, TestGGACallbackRealParsingValidMessage)
     std::string strGGA = "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47";
     
     bool result = nmea_real.GGACallback(strGGA, nmea_data);
-    
     EXPECT_TRUE(result);
+
+    const auto& gga = nmea_data.payload_received.gga_data;
+
+    // Message ID
+    EXPECT_STREQ(gga.messageID.data(), "$GPGGA");
+
+    // Time
+    EXPECT_EQ(gga.hour, 12);
+    EXPECT_EQ(gga.minutes, 35);
+    EXPECT_EQ(gga.seconds, 19);
+
+    // Latitude (raw NMEA format, as your parser currently stores it)
+    EXPECT_FLOAT_EQ(gga.latitude, 4807.038f);
+    EXPECT_EQ(gga.NSIndicator, 'N');
+
+    // Longitude (raw NMEA format)
+    EXPECT_FLOAT_EQ(gga.longitude, 1131.000f);
+    EXPECT_EQ(gga.EWIndicator, 'E');
+
+    // Fix indicator
+    EXPECT_EQ(
+        gga.positionFixIndicator,
+        NMEAParser::PositionFixIndicator::GPS_SPS
+    );
+
+    // HDOP
+    EXPECT_FLOAT_EQ(gga.hdop, 0.9f);
+
+    // Altitude
+    EXPECT_FLOAT_EQ(gga.mslAltitude, 545.4f);
+
+    // Geoid separation
+    EXPECT_FLOAT_EQ(gga.geoidSeparation, 46.9f);
 }
 
 TEST_F(NMEAParserTests, TestGGACallbackInvalidChecksum)
@@ -494,8 +524,25 @@ TEST_F(NMEAParserTests, TestGLLCallbackRealParsingValidMessage)
     std::string strGLL = "$GPGLL,4807.038,N,01131.000,E,123519,A*25";
     
     bool result = nmea_real.GLLCallback(strGLL, nmea_data);
-    
     EXPECT_TRUE(result);
+
+    auto &gll = nmea_data.payload_received.gll_data;
+
+    // Message ID
+    EXPECT_STREQ(gll.messageID.data(), "$GPGLL");
+
+    // Latitude (raw NMEA format)
+    EXPECT_FLOAT_EQ(gll.latitude, 4807.038f);
+    EXPECT_EQ(gll.NSIndicator, 'N');
+
+    // Longitude (raw NMEA format)
+    EXPECT_FLOAT_EQ(gll.longitude, 1131.000f);
+    EXPECT_EQ(gll.EWIndicator, 'E');
+
+    // Time
+    EXPECT_EQ(gll.hour, 12);
+    EXPECT_EQ(gll.minutes, 35);
+    EXPECT_EQ(gll.seconds, 19);
 }
 
 TEST_F(NMEAParserTests, TestGLLCallbackInvalidChecksum)
@@ -693,8 +740,23 @@ TEST_F(NMEAParserTests, TestGSACallbackRealParsingValidMessage)
     std::string strGSA = "$GPGSA,A,3,04,05,,09,12,,,24,,,,,2.5,1.3,2.1*39";
     
     bool result = nmea_real.GSACallback(strGSA, nmea_data);
-    
     EXPECT_TRUE(result);
+
+    const auto& gsa = nmea_data.payload_received.gsa_data;
+
+    // Message ID
+    EXPECT_STREQ(gsa.messageID.data(), "$GPGSA");
+
+    // Mode selection (Manual/Automatic)
+    EXPECT_EQ(gsa.modeSelection, 'A');
+
+    // Mode (1 = no fix, 2 = 2D, 3 = 3D)
+    EXPECT_EQ(gsa.mode, 3);
+
+    // PDOP / HDOP / VDOP
+    EXPECT_FLOAT_EQ(gsa.pdop, 2.5f);
+    EXPECT_FLOAT_EQ(gsa.hdop, 1.3f);
+    EXPECT_FLOAT_EQ(gsa.vdop, 2.1f);
 }
 
 TEST_F(NMEAParserTests, TestGSACallbackInvalidChecksum)
@@ -976,6 +1038,23 @@ TEST_F(NMEAParserTests, TestMSSCallbackRealParsingValidMessage)
     std::string msg = "$GPMSS,55,27,318.0,100*4A";
 
     EXPECT_TRUE(nmea_real.MSSCallback(msg, nmea_data));
+
+    const auto& mss = nmea_data.payload_received.mss_data;
+
+    // Message ID
+    EXPECT_STREQ(mss.messageID.data(), "$GPMSS");
+
+    // Signal strength
+    EXPECT_EQ(mss.signalStrength, 55);
+
+    // Signal-to-noise ratio
+    EXPECT_EQ(mss.snr, 27);
+
+    // Beacon frequency
+    EXPECT_FLOAT_EQ(mss.beaconFrequency, 318.0f);
+
+    // Beacon bit rate
+    EXPECT_EQ(mss.beaconBitRate, 100);
 }
 
 TEST_F(NMEAParserTests, TestMSSCallbackInvalidChecksum)
@@ -1000,7 +1079,7 @@ TEST_F(NMEAParserTests, TestMSSCallbackAllFieldsEmpty)
 {
     NMEAParserRealHelper nmea_real;
 
-    std::string msg = "$GPMSS,,,,*5A";
+    std::string msg = "$GPMSS,,,,,*76";
 
     EXPECT_TRUE(nmea_real.MSSCallback(msg, nmea_data));
 }
@@ -1031,6 +1110,44 @@ TEST_F(NMEAParserTests, TestRMCCallbackRealParsingValidMessage)
         "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A";
 
     EXPECT_TRUE(nmea_real.RMCCallback(msg, nmea_data));
+    
+    const auto& rmc = nmea_data.payload_received.rmc_data;
+
+    // Message ID
+    EXPECT_STREQ(rmc.messageID.data(), "$GPRMC");
+
+    // Time
+    EXPECT_EQ(rmc.hour, 12);
+    EXPECT_EQ(rmc.minutes, 35);
+    EXPECT_EQ(rmc.seconds, 19);
+
+    // Status (A = valid)
+    EXPECT_TRUE(rmc.Status);
+
+    // Latitude (raw NMEA format)
+    EXPECT_FLOAT_EQ(rmc.latitude, 4807.038f);
+    EXPECT_EQ(rmc.NSIndicator, 'N');
+
+    // Longitude (raw NMEA format)
+    EXPECT_FLOAT_EQ(rmc.longitude, 1131.000f);
+    EXPECT_EQ(rmc.EWIndicator, 'E');
+
+    // Speed over ground (knots)
+    EXPECT_FLOAT_EQ(rmc.speedOverGround, 22.4f);
+
+    // Course over ground
+    EXPECT_FLOAT_EQ(rmc.courseOverGround, 84.4f);
+
+    // Date (DDMMYY)
+    EXPECT_EQ(rmc.day, 23);
+    EXPECT_EQ(rmc.month, 3);
+    EXPECT_EQ(rmc.year, 94);
+
+    // Magnetic variation
+    EXPECT_FLOAT_EQ(rmc.magneticVariation, 3.1f);
+
+    // Magnetic variation direction (W)
+    EXPECT_EQ(rmc.mode, 'W');
 }
 
 TEST_F(NMEAParserTests, TestRMCCallbackInvalidChecksum)
@@ -1187,6 +1304,23 @@ TEST_F(NMEAParserTests, TestVTGCallbackRealParsingValidMessage)
         "$GPVTG,054.7,T,034.4,M,5.5,N,10.2,K*78";
 
     EXPECT_TRUE(nmea_real.VTGCallback(msg, nmea_data));
+
+    const auto& vtg = nmea_data.payload_received.vtg_data;
+
+    // Message ID
+    EXPECT_STREQ(vtg.messageID.data(), "$GPVTG");
+
+    // True track (degrees)
+    EXPECT_FLOAT_EQ(vtg.trueTrack, 54.7f);
+
+    // Magnetic track (degrees)
+    EXPECT_FLOAT_EQ(vtg.magneticTrack, 34.4f);
+
+    // Speed over ground (knots)
+    EXPECT_FLOAT_EQ(vtg.speedKnots, 5.5f);
+
+    // Speed over ground (km/h)
+    EXPECT_FLOAT_EQ(vtg.speedKmh, 10.2f);
 }
 
 TEST_F(NMEAParserTests, TestVTGCallbackInvalidChecksum)
