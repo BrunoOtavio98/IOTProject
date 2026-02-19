@@ -66,12 +66,21 @@ void GNSSInterface::UpdateGNSSData( NMEAParser::NMEA_Data &nmea_data )
 	switch( nmea_data.nmea_type )
 	{
 		case NMEAParser::GGA:
-			inactive->lat = nmea_data.payload_received.gga_data.latitude;
-			inactive->lon = nmea_data.payload_received.gga_data.longitude;
-			inactive->alt = nmea_data.payload_received.gga_data.mslAltitude;
-			inactive->hour = nmea_data.payload_received.gga_data.hour;
-			inactive->minutes = nmea_data.payload_received.gga_data.minutes;
-			inactive->seconds = nmea_data.payload_received.gga_data.seconds;
+			{
+				float raw_lat = nmea_data.payload_received.gga_data.latitude;
+				char ns = nmea_data.payload_received.gga_data.NSIndicator;
+
+				float raw_lon = nmea_data.payload_received.gga_data.longitude;
+				char ew = nmea_data.payload_received.gga_data.EWIndicator;
+
+				inactive->lat = LatToDeg( raw_lat, ns );
+				inactive->lon = LonToDeg(raw_lon, ew);
+
+				inactive->alt = nmea_data.payload_received.gga_data.mslAltitude;
+				inactive->hour = nmea_data.payload_received.gga_data.hour;
+				inactive->minutes = nmea_data.payload_received.gga_data.minutes;
+				inactive->seconds = nmea_data.payload_received.gga_data.seconds;
+			}
 			break;
 	
 		case NMEAParser::GSA:
@@ -129,6 +138,32 @@ bool GNSSInterface::CanProcessMessage()
 
 	return (((uart_buffer_receive_[rx_buffer_pos_ - 1] == '\n' || uart_buffer_receive_[rx_buffer_pos_ - 1] == '\r') ) 
 			  && is_callback_executing_ == false);
+}
+
+float GNSSInterface::LatToDeg( float raw, char ns)
+{
+    int degrees = static_cast<int>(raw / 100);
+    double minutes = raw - (degrees * 100);
+
+    float decimal = degrees + (minutes / 60.0);
+
+    if (ns == 'S')
+        decimal = -decimal;
+
+    return decimal;
+}
+
+float GNSSInterface::LonToDeg( float raw, char ew )
+{
+    int degrees = static_cast<int>(raw / 100);
+    double minutes = raw - (degrees * 100);
+
+    float decimal = degrees + (minutes / 60.0);
+
+    if (ew == 'W')
+        decimal = -decimal;
+
+    return decimal;
 }
 
 }

@@ -54,7 +54,11 @@ public:
 protected:
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart_;
 
-    void Task(void *params) override;    
+    void Task(void *params) override;
+
+    float LatToDeg( float raw, char ns);
+    float LonToDeg( float raw, char ew );
+
 private:
     static const int kRxBufferSize = 256;
 
