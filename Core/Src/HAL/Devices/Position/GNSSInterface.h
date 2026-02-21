@@ -58,17 +58,16 @@ protected:
 
     float LatToDeg( float raw, char ns);
     float LonToDeg( float raw, char ew );
+    void UpdateGNSSData( NMEAParser::NMEA_Data &nmea_data );
 
 private:
     static const int kRxBufferSize = 256;
 
     void UartCallBack( const uint8_t *data, uint16_t data_size );
     bool CanProcessMessage();
-    void UpdateGNSSData( NMEAParser::NMEA_Data &nmea_data );
 
     uint16_t rx_buffer_pos_;
     uint8_t uart_buffer_receive_[kRxBufferSize];
-    std::atomic<bool> is_callback_executing_;
     std::unique_ptr<NMEAParser> nmea_parser_;
     
     BasicGNSSData buffer_a_;

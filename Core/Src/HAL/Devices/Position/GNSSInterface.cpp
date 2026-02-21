@@ -20,13 +20,11 @@ GNSSInterface::GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Inter
                             DebugInterface("GnssInterface"),
                             gnss_uart_(gnss_uart),
                             rx_buffer_pos_(0),
-                            is_callback_executing_(false),
                             nmea_parser_(std::make_unique<NMEAParser>())
 {
 	gnss_uart_->ListenRxIT([this](const uint8_t *data, uint16_t size){UartCallBack(data, size);});
 
 	active_buffer_.store(&buffer_a_);
-
 }
 
 GNSSInterface::~GNSSInterface()
@@ -52,7 +50,7 @@ void GNSSInterface::Task(void *params)
 			std::memset(uart_buffer_receive_, 0, kRxBufferSize);
 		}
 
-		TaskDelay(200);
+		TaskDelay(10);
 	}
 }
 
@@ -125,19 +123,30 @@ void GNSSInterface::UartCallBack( const uint8_t *data, uint16_t size )
 		size = ((kRxBufferSize - rx_buffer_pos_) - 1);
 	}
 
-	is_callback_executing_ = true;
+	TaskEnterCriticalSection();
 	std::memcpy(uart_buffer_receive_ + rx_buffer_pos_, data, size);
 	rx_buffer_pos_ += size;
-	is_callback_executing_ = false;
+	TaskExitCriticalSection();
 }
 
 bool GNSSInterface::CanProcessMessage()
 {	
-	if(rx_buffer_pos_ == 0)
-		return false;
+    bool can_process = false;
 
-	return (((uart_buffer_receive_[rx_buffer_pos_ - 1] == '\n' || uart_buffer_receive_[rx_buffer_pos_ - 1] == '\r') ) 
-			  && is_callback_executing_ == false);
+    TaskEnterCriticalSection();
+    if (rx_buffer_pos_ > 0)
+    {
+        uint16_t pos = rx_buffer_pos_;
+        char last_char = uart_buffer_receive_[pos - 1];
+
+        if (last_char == '\n' || last_char == '\r')
+        {
+            can_process = true;
+        }
+    }
+	TaskExitCriticalSection();
+
+    return can_process;
 }
 
 float GNSSInterface::LatToDeg( float raw, char ns)

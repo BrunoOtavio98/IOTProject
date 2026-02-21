@@ -31,6 +31,8 @@ public:
     void RegisterCallback(CallBackType task);
     void TaskDelay(int delay_ms);
     static void ToStaticTask( void *this_task_wrapper);
+    void TaskEnterCriticalSection();
+    void TaskExitCriticalSection();
 
 protected:
     virtual void Task(void *params) {

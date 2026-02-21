@@ -41,5 +41,19 @@ void TaskWrapper::ToStaticTask( void *this_task_wrapper) {
 	}
 }
 
+void TaskWrapper::TaskEnterCriticalSection()
+{
+#ifdef FREERTOS
+taskENTER_CRITICAL();
+#endif
+}
+
+void TaskWrapper::TaskExitCriticalSection()
+{
+#ifdef FREERTOS
+taskEXIT_CRITICAL();
+#endif
+}
+
 }
 }
