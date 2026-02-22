@@ -57,7 +57,7 @@ void STM32UartCommunication::Task(void *params) {
 			callback_read_finish_(temp_data, rx_buffer_pos_);
 			rx_buffer_pos_ = 0;
 		}
-		TaskDelay(300);
+		TaskDelay(50);
 	}
 }
 

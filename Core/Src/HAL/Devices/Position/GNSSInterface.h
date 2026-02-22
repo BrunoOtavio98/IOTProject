@@ -23,6 +23,14 @@ class UartCommunicationInterface;
 }
 }
 
+namespace HAL 
+{
+namespace DebugController 
+{
+class DebugController;
+}
+}
+
 namespace HAL
 {
 namespace Devices
@@ -46,20 +54,21 @@ public:
         uint8_t day, month, year;
     } BasicGNSSData;
 
-    GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart );
+    GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart,
+                   const std::shared_ptr<HAL::DebugController::DebugController> &debug_controler );
     ~GNSSInterface();
 
     void GetUpdatedGnssData( BasicGNSSData &gnss_data );
 
 protected:
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart_;
+    std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
 
     void Task(void *params) override;
 
     float LatToDeg( float raw, char ns);
     float LonToDeg( float raw, char ew );
     void UpdateGNSSData( NMEAParser::NMEA_Data &nmea_data );
-
 private:
     static const int kRxBufferSize = 256;
 

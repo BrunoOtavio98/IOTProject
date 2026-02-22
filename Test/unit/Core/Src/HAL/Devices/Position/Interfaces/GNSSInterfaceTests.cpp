@@ -4,8 +4,10 @@
 #include <gmock/gmock.h>
 
 #include "Core/Src/HAL/Devices/Communication/Interfaces/Mocks/MockUartCommunicationInterface.h"
+#include "Core/Src/HAL/DebugController/Mocks/MockDebugController.h"
 
 using HAL::Devices::Communication::Interfaces::MockUartCommunicationInterface;
+using HAL::DebugController::MockDebugController;
 
 namespace HAL
 {
@@ -17,8 +19,9 @@ namespace Position
 class GNSSInterfaceHelper: public GNSSInterface 
 {
     public:
-        GNSSInterfaceHelper( std::shared_ptr<MockUartCommunicationInterface> gnss_uart ) :
-                             GNSSInterface(gnss_uart)
+        GNSSInterfaceHelper( std::shared_ptr<MockUartCommunicationInterface> gnss_uart,
+                             std::shared_ptr<MockDebugController> debug_controller) :
+                             GNSSInterface(gnss_uart, debug_controller)
         {
             
         }
@@ -31,12 +34,14 @@ class GNSSInterfaceTests : public testing::Test
     public:
         GNSSInterfaceTests() :
             gnss_uart_(std::make_shared<MockUartCommunicationInterface>()),
-            gnss_interface_(gnss_uart_)
+            debug_controller_(std::make_shared<MockDebugController>(gnss_uart_)),
+            gnss_interface_(gnss_uart_, debug_controller_)
         {
 
         }
     
     std::shared_ptr<MockUartCommunicationInterface> gnss_uart_;
+    std::shared_ptr<MockDebugController> debug_controller_;
     GNSSInterfaceHelper gnss_interface_;
 };
 

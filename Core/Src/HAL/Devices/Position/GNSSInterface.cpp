@@ -2,11 +2,13 @@
 
 #include "Utils/StringManipulation.h"
 #include "Devices/Communication/Interfaces/UartCommunicationInterface.h"
+#include "DebugController/DebugController.h"
 
 #include <iostream>
 #include <cstring>
 
 using HAL::Utils::StringManipulation;
+using HAL::DebugController::DebugController;
 
 namespace HAL
 {
@@ -15,15 +17,16 @@ namespace Devices
 namespace Position
 {
 
-GNSSInterface::GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart ) : 
-                            TaskWrapper("GnssInterface", 500, nullptr, 2),
-                            DebugInterface("GnssInterface"),
+GNSSInterface::GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart, const std::shared_ptr<HAL::DebugController::DebugController> &debug_controler ) : 
+                            TaskWrapper("Gnss", 500, nullptr, 2),
+                            DebugInterface("Gnss"),
                             gnss_uart_(gnss_uart),
+							debug_controller_(debug_controler),
                             rx_buffer_pos_(0),
                             nmea_parser_(std::make_unique<NMEAParser>())
 {
+	debug_controller_->RegisterModuleToDebug(this);
 	gnss_uart_->ListenRxIT([this](const uint8_t *data, uint16_t size){UartCallBack(data, size);});
-
 	active_buffer_.store(&buffer_a_);
 }
 
@@ -43,6 +46,7 @@ void GNSSInterface::Task(void *params)
 
             if( nmea_parser_->ProcessNMEAMessage( nmea_message, nmea_data ) )
             {
+            	debug_controller_->PrintInfo(this, nmea_message + "\n", false);
                 UpdateGNSSData( nmea_data );
             }
 
