@@ -24,6 +24,18 @@ class TaskWrapperManager;
 }
 }
 
+namespace HAL 
+{
+namespace Devices
+{
+namespace Position
+{
+class GNSSInterface;
+}
+}
+}
+
+
 namespace HAL {
 namespace Boards {
 
@@ -40,9 +52,12 @@ public:
 protected:
 	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> modem_uart_communication_;
 	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> debug_uart_communication_;
+	std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart_communication_;
+
 	std::unique_ptr<HAL::Devices::IOT::Interfaces::ModemInterface> modem_interface_;
 	std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
 	std::shared_ptr<HAL::RtosWrappers::TaskWrapperManager> rtos_task_manager_;
+	std::shared_ptr<HAL::Devices::Position::GNSSInterface> gnss_interface_;
 };
 
 }
