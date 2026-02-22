@@ -64,7 +64,7 @@ private:
 
 	struct DebugData {
 		DebugInterface::MessageVerbosity msg_verbosity;
-		char msg[30];
+		char msg[256];
 		char module_name[10];
 	}DataToLog;
 
