@@ -58,7 +58,18 @@ class NMEAParserTests: public testing::Test
 {
     public:
         NMEAParserTests()
-        {}
+        {
+
+        }
+
+        void SetUp() override
+        {
+            nmea_data = NMEAParser::NMEA_Data();
+        }
+
+        void TearDown() override
+        {
+        }
 
     NMEAParserHelper nmea_parser_;
     NMEAParser::NMEA_Data nmea_data;

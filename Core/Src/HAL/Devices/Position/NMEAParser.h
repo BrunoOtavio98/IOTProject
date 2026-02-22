@@ -176,6 +176,8 @@ protected:
 
     NMEAParser::NMEAMessageType GetNMEAMessageType( const std::string &nmea_message );
     NMEAParser::NMEAMessageType ToMessagetypeFromStr( const std::string str_message_type );
+    std::string StripNMEAChecksum(const std::string &field);
+
 };
 
 }
