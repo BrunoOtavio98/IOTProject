@@ -23,10 +23,18 @@ class GNSSInterfaceHelper: public GNSSInterface
                              std::shared_ptr<MockDebugController> debug_controller) :
                              GNSSInterface(gnss_uart, debug_controller)
         {
-            
         }
 
+        uint16_t GetInsertBufferCtrl() { return insert_buffer_ctrl_; }
+        uint16_t GetProcessBufferCtrl() { return process_buffer_ctrl_; }
+        void ClearRxBuffer() { uart_buffer_receive_[0] = '\0'; }
+        int GetRxBufferSize() { return kRxBufferSize; }
+
+
     using GNSSInterface::UpdateGNSSData;
+    using GNSSInterface::GetNMEAFrame;
+    using GNSSInterface::UartCallBack;
+
 };
 
 class GNSSInterfaceTests : public testing::Test
@@ -38,6 +46,11 @@ class GNSSInterfaceTests : public testing::Test
             gnss_interface_(gnss_uart_, debug_controller_)
         {
 
+        }
+
+        void SetUp()
+        {   
+            gnss_interface_.ClearRxBuffer();
         }
     
     std::shared_ptr<MockUartCommunicationInterface> gnss_uart_;
@@ -260,6 +273,199 @@ TEST_F(GNSSInterfaceTests, TestGGAPositionMinValidLatitude)
 
     EXPECT_NEAR( gnss_data.lat, -89.999983, 0.0001f );
     EXPECT_NEAR( gnss_data.lon, -179.999983, 0.0001f);
+}
+
+TEST_F(GNSSInterfaceTests, TestWriteOnceReadOnce)
+{
+    std::string test_string = "ABC\r\n";
+    std::string final_string;
+    const uint8_t* raw_string = reinterpret_cast<const uint8_t*>(test_string.data());
+
+    gnss_interface_.UartCallBack( raw_string, test_string.size() );
+
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), test_string.size() );
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string) );
+    EXPECT_EQ( test_string.size() - 2, final_string.size() );
+    EXPECT_EQ( "ABC", final_string );
+}
+
+TEST_F(GNSSInterfaceTests, TestConcatenatedStrings)
+{
+    std::string test_string = "ABC\r\nDEFG\r\nBruno\r\n";
+    std::string final_string;
+    const uint8_t* raw_string = reinterpret_cast<const uint8_t*>(test_string.data());
+
+    gnss_interface_.UartCallBack( raw_string, test_string.size() );
+
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), test_string.size() );
+    
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string) );
+    EXPECT_EQ( 3, final_string.size() );
+    EXPECT_EQ( "ABC", final_string );
+    EXPECT_EQ( 5, gnss_interface_.GetProcessBufferCtrl() );
+
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string) );
+    EXPECT_EQ( 4, final_string.size() );
+    EXPECT_EQ( "DEFG", final_string );
+    EXPECT_EQ( 11, gnss_interface_.GetProcessBufferCtrl() );
+
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string) );
+    EXPECT_EQ( 5, final_string.size() );
+    EXPECT_EQ( "Bruno", final_string );
+    EXPECT_EQ( 18, gnss_interface_.GetProcessBufferCtrl() );
+}
+
+TEST_F(GNSSInterfaceTests, TestNoCRLFOneMessage)
+{
+    std::string test_string = "HELLO";
+    std::string final_string;
+    const uint8_t* raw_string = reinterpret_cast<const uint8_t*>(test_string.data());
+
+    gnss_interface_.UartCallBack( raw_string, test_string.size() );
+
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), test_string.size() );
+    
+    EXPECT_FALSE( gnss_interface_.GetNMEAFrame(final_string) );
+    EXPECT_EQ( gnss_interface_.GetProcessBufferCtrl(), 0 );
+}
+
+TEST_F(GNSSInterfaceTests, TestMultipleUartEvents)
+{
+    std::string test_string1 = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean sit amet suscipit nunc, at molestie.\r\n";
+    std::string final_string1;
+    const uint8_t* raw_string1 = reinterpret_cast<const uint8_t*>(test_string1.data());
+
+    std::string test_string2 = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut vitae erat tellus. Nunc nibh nulla.\r\n";
+    std::string final_string2;
+    const uint8_t* raw_string2 = reinterpret_cast<const uint8_t*>(test_string2.data());
+
+    std::string test_string3 = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\r\n";
+    std::string final_string3;
+    const uint8_t* raw_string3 = reinterpret_cast<const uint8_t*>(test_string3.data());
+
+    uint16_t expect_str_size = test_string1.size();
+
+    gnss_interface_.UartCallBack( raw_string1, test_string1.size() );
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), expect_str_size );
+
+    expect_str_size += test_string2.size();
+    gnss_interface_.UartCallBack( raw_string2, test_string2.size() );
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), expect_str_size );
+
+    expect_str_size += test_string3.size();
+    gnss_interface_.UartCallBack( raw_string3, test_string3.size() );
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), expect_str_size );
+
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string1) );
+    EXPECT_EQ( 100, final_string1.size() );
+    EXPECT_EQ( "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean sit amet suscipit nunc, at molestie.", final_string1 );
+    EXPECT_EQ( 102, gnss_interface_.GetProcessBufferCtrl() );
+
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string2) );
+    EXPECT_EQ( 95, final_string2.size() );
+    EXPECT_EQ( "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut vitae erat tellus. Nunc nibh nulla.", final_string2 );
+    EXPECT_EQ( 199, gnss_interface_.GetProcessBufferCtrl() );
+
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string3) );
+    EXPECT_EQ( 56, final_string3.size() );
+    EXPECT_EQ( "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", final_string3 );
+    EXPECT_EQ( 257, gnss_interface_.GetProcessBufferCtrl() );
+}
+
+TEST_F(GNSSInterfaceTests, TestMultipleUartEventsWritWrap)
+{
+    std::string test_string1 = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean sit amet suscipit nunc, at molestie.\r\n";
+    std::string final_string1;
+    const uint8_t* raw_string1 = reinterpret_cast<const uint8_t*>(test_string1.data());
+
+    std::string test_string2 = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut vitae erat tellus. Nunc nibh nulla.\r\n";
+    std::string final_string2;
+    const uint8_t* raw_string2 = reinterpret_cast<const uint8_t*>(test_string2.data());
+
+    std::string test_string3 = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\r\n";
+    std::string final_string3;
+    const uint8_t* raw_string3 = reinterpret_cast<const uint8_t*>(test_string3.data());
+
+    std::string test_string4 = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum aliquet sagittis arcu, id condimentum lectus suscipit quis.\r\n";
+    std::string final_string4;
+    const uint8_t* raw_string4 = reinterpret_cast<const uint8_t*>(test_string4.data());
+
+    std::string test_string5 = "Morbi placerat pellentesque tristique. Pellentesque est nisi, varius a scelerisque quis, hendrerit in enim. Maecenas lacus sapien, aliquet vitae orci eget, mollis interdum enim efficitur.\r\n";
+    std::string final_string5;
+    const uint8_t* raw_string5 = reinterpret_cast<const uint8_t*>(test_string5.data());
+
+    uint16_t expect_str_size = test_string1.size();
+
+    gnss_interface_.UartCallBack( raw_string1, test_string1.size() );
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), expect_str_size );
+
+    expect_str_size += test_string2.size();
+    gnss_interface_.UartCallBack( raw_string2, test_string2.size() );
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), expect_str_size );
+
+    expect_str_size += test_string3.size();
+    gnss_interface_.UartCallBack( raw_string3, test_string3.size() );
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), expect_str_size );
+
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string1) );
+    EXPECT_EQ( 100, final_string1.size() );
+    EXPECT_EQ( "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean sit amet suscipit nunc, at molestie.", final_string1 );
+    EXPECT_EQ( 102, gnss_interface_.GetProcessBufferCtrl() );
+
+    expect_str_size += test_string4.size();
+    gnss_interface_.UartCallBack( raw_string4, test_string4.size() );
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), expect_str_size );
+
+    // Wrap happens here
+    expect_str_size += test_string5.size();
+    expect_str_size = expect_str_size % gnss_interface_.GetRxBufferSize();
+
+    gnss_interface_.UartCallBack( raw_string5, test_string5.size() );
+    EXPECT_EQ( gnss_interface_.GetInsertBufferCtrl(), expect_str_size );
+
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string2) );
+    EXPECT_EQ( 95, final_string2.size() );
+    EXPECT_EQ( "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut vitae erat tellus. Nunc nibh nulla.", final_string2 );
+    EXPECT_EQ( 199, gnss_interface_.GetProcessBufferCtrl() );
+
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string3) );
+    EXPECT_EQ( 56, final_string3.size() );
+    EXPECT_EQ( "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", final_string3 );
+    EXPECT_EQ( 257, gnss_interface_.GetProcessBufferCtrl() );
+
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string4) );
+    EXPECT_EQ( 127, final_string4.size() );
+    EXPECT_EQ( "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum aliquet sagittis arcu, id condimentum lectus suscipit quis.", final_string4 );
+    EXPECT_EQ( 386, gnss_interface_.GetProcessBufferCtrl() );
+
+    EXPECT_TRUE( gnss_interface_.GetNMEAFrame(final_string5) );
+    EXPECT_EQ( 187, final_string5.size() );
+    EXPECT_EQ( "Morbi placerat pellentesque tristique. Pellentesque est nisi, varius a scelerisque quis, hendrerit in enim. Maecenas lacus sapien, aliquet vitae orci eget, mollis interdum enim efficitur.", final_string5 );
+    EXPECT_EQ( expect_str_size, gnss_interface_.GetProcessBufferCtrl() );
+}
+
+TEST_F(GNSSInterfaceTests, TestFragmentedFrame)
+{
+    std::string part1 = "ABC";
+    std::string part2 = "\r";
+    std::string part3 = "\n";
+
+    gnss_interface_.UartCallBack(
+        reinterpret_cast<const uint8_t*>(part1.data()),
+        part1.size());
+
+    gnss_interface_.UartCallBack(
+        reinterpret_cast<const uint8_t*>(part2.data()),
+        part2.size());
+
+    gnss_interface_.UartCallBack(
+        reinterpret_cast<const uint8_t*>(part3.data()),
+        part3.size());
+
+    std::string frame;
+
+    EXPECT_TRUE(gnss_interface_.GetNMEAFrame(frame));
+    EXPECT_EQ("ABC", frame);
 }
 
 }

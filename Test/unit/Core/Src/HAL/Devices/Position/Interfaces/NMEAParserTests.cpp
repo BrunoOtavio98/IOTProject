@@ -725,7 +725,7 @@ TEST_F(NMEAParserTests, TestGLLCallbackInvalidUTCTimeLength)
 {
     NMEAParserRealHelper nmea_real;
     
-    std::string strGLL = "$GPGLL,4807.038,N,01131.000,E,12351999,A*25";
+    std::string strGLL = "$GPGLL,4807.038213,N,01131.000,E,12351999,A*25";
     
     bool result = nmea_real.GLLCallback(strGLL, nmea_data);
     
@@ -1224,7 +1224,7 @@ TEST_F(NMEAParserTests, TestRMCCallbackInvalidUTCTimeLength)
     NMEAParserRealHelper nmea_real;
 
     std::string msg =
-        "$GPRMC,12351999,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A";
+        "$GPRMC,1235199921312,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A";
 
     EXPECT_FALSE(nmea_real.RMCCallback(msg, nmea_data));
 }

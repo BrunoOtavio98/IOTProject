@@ -23,7 +23,7 @@ class STM32UartCommunication : public HAL::Devices::Communication::Interfaces::U
 							   public HAL::RtosWrappers::TaskWrapper {
 public:
 	static const int kRxBufferSize = 1024;
-	static const int kChunkSize = 256;
+	static const int kChunkSize = 512;
 	const int kUartTimeoutTxCommunication = 150;
 	const int kUartTimeoutRxCommunication = 10000;
 

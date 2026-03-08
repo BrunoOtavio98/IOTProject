@@ -61,27 +61,28 @@ public:
     void GetUpdatedGnssData( BasicGNSSData &gnss_data );
 
 protected:
+    static const int kRxBufferSize = 512;
+
     std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart_;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controller_;
+
+    uint16_t insert_buffer_ctrl_;
+    uint16_t process_buffer_ctrl_;
+    uint8_t uart_buffer_receive_[kRxBufferSize];
+    uint16_t empty_buffer_space_;
+    std::unique_ptr<NMEAParser> nmea_parser_;
+    
+    BasicGNSSData buffer_a_;
+    BasicGNSSData buffer_b_;
+    std::atomic<BasicGNSSData*> active_buffer_;
 
     void Task(void *params) override;
 
     float LatToDeg( float raw, char ns);
     float LonToDeg( float raw, char ew );
     void UpdateGNSSData( NMEAParser::NMEA_Data &nmea_data );
-private:
-    static const int kRxBufferSize = 256;
-
     void UartCallBack( const uint8_t *data, uint16_t data_size );
-    bool CanProcessMessage();
-
-    uint16_t rx_buffer_pos_;
-    uint8_t uart_buffer_receive_[kRxBufferSize];
-    std::unique_ptr<NMEAParser> nmea_parser_;
-    
-    BasicGNSSData buffer_a_;
-    BasicGNSSData buffer_b_;
-    std::atomic<BasicGNSSData*> active_buffer_;
+    bool GetNMEAFrame( std::string &nmea_frame );
 };
 
 }

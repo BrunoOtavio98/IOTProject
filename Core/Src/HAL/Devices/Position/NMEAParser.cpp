@@ -150,10 +150,10 @@ bool NMEAParser::GGACallback(const std::string &nmea_msg, NMEA_Data &parsed_data
         return false;
     std::strncpy(reinterpret_cast<char*>(gga_msg.messageID.data()), fields[0].c_str(), NMEAParser::kMaxMessageIdSize - 1);
 
-    // Field 1: UTC Time (HHMMSS.SS) - Optional
+    // Field 1: UTC Time (HHMMSS.SSS) - Optional
     if (!fields[1].empty())
     {
-        if (fields[1].size() >= 9)
+        if (fields[1].size() > 10)
             return false;
 
         std::string tmp;
@@ -321,7 +321,7 @@ bool NMEAParser::GLLCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     // Field 5: UTC Time
     if( !fields[5].empty() )
     {   
-        if( fields[5].size() != 6 )
+        if( fields[5].size() > 10 )
             return false;
 
        if ( !SafeParse::ToUint8t(fields[5].substr(0,2), gll_msg.hour) ||
@@ -597,7 +597,7 @@ bool NMEAParser::RMCCallback(const std::string &nmea_msg, NMEA_Data &parsed_data
     // Field 1: UTC Time
     if( !fields[1].empty() )
     {
-        if( fields[1].size() != 6 )
+        if( fields[1].size() > 10 )
             return false;
 
         std::string tmp;
