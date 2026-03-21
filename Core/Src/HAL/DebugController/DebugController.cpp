@@ -39,12 +39,12 @@ DebugController::~DebugController()
 
 void DebugController::Task(void *params) 
 {
-	DebugData *current_msg_to_log;
+	DebugData current_msg_to_log;
 	do
 	{
 		if(queue_manager_->QueueReceive(debug_msgs_queue_, &current_msg_to_log, 300))
 		{
-			PrintMessage(current_msg_to_log->msg_verbosity, current_msg_to_log->module_name, current_msg_to_log->msg);
+			PrintMessage(current_msg_to_log.msg_verbosity, current_msg_to_log.module_name, current_msg_to_log.msg);
 		}
 
 		if(CanProcessMessage())
@@ -54,7 +54,7 @@ void DebugController::Task(void *params)
 			DispatchMessage(str);
 		}
 
-		TaskDelay(200);
+		TaskDelay(20);
 	} while(task_should_run_);
 }
 
@@ -70,16 +70,24 @@ void DebugController::CallbackUartMsgReceived(const uint8_t *data, uint16_t size
 		size = ((kBufferSize - rx_buffer_pos_) - 1);
 	}
 
-	is_callback_executing_ = true;
+    TaskEnterCriticalSection();
 	std::memcpy(uart_buffer_receive_ + rx_buffer_pos_, data, size);
 	rx_buffer_pos_ += size;
-	is_callback_executing_ = false;
+    TaskExitCriticalSection();
 }
 
 bool DebugController::CanProcessMessage()
-{
-	return (((uart_buffer_receive_[rx_buffer_pos_ - 1] == '\n' || uart_buffer_receive_[rx_buffer_pos_ - 1] == '\r') ) 
-			  && is_callback_executing_ == false);
+{	
+	if (rx_buffer_pos_ == 0)
+    {
+        return false;
+    }
+
+    TaskEnterCriticalSection();
+    char last_char = uart_buffer_receive_[rx_buffer_pos_ - 1];
+    bool can_process = (last_char == '\n' || last_char == '\r');
+    TaskExitCriticalSection();
+    return can_process;
 }
 
 void DebugController::RegisterModuleToDebug(DebugInterface *module) 
@@ -127,22 +135,23 @@ void DebugController::PrintError(DebugInterface *module, const std::string &msg,
 }
 
 void DebugController::InsertMsgIntoQueue(const DebugInterface::MessageVerbosity &msg_verbosity, const std::string &module, const std::string &message, bool from_isr) 
-{	
-	DebugData *debug_data;
+{
+    TaskEnterCriticalSection();
+
 	strncpy(DataToLog.module_name, module.c_str(), sizeof(DataToLog.module_name));
 	strncpy(DataToLog.msg, message.c_str(), sizeof(DataToLog.msg));
 	DataToLog.msg_verbosity = msg_verbosity;
 
-	debug_data = &DataToLog;
-
 	if(from_isr) 
 	{
-		queue_manager_->QueueSendFromISR(debug_msgs_queue_, (void *)&debug_data, 100);
+		queue_manager_->QueueSendFromISR(debug_msgs_queue_, (void *)&DataToLog, 100);
 	}
 	else 
 	{
-		queue_manager_->QueueSend(debug_msgs_queue_, (void *)&debug_data, 100);
+		queue_manager_->QueueSend(debug_msgs_queue_, (void *)&DataToLog, 100);
 	}
+
+	TaskExitCriticalSection();
 }
 
 bool DebugController::CheckIfModuleCanLog(DebugInterface *module, const DebugInterface::MessageVerbosity &desired_verbosity) {

@@ -14,8 +14,10 @@
 #include "DebugController/DebugController.h"
 #include "RTOSWrappers/TaskWrapperManager.h"
 #include "DebugController/DebugInterface.h"
+#include "Devices/Position/GNSSInterface.h"
 
 #include "stm32f4xx_hal.h"
+#include "cmsis_os.h"
 
 using HAL::Devices::Communication::STM32UartCommunication;
 using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;
@@ -24,20 +26,27 @@ using HAL::Devices::IOT::Modem::SIM7020Modem;
 using HAL::DebugController::DebugController;
 using HAL::DebugController::DebugInterface;
 using HAL::RtosWrappers::TaskWrapperManager;
+using HAL::Devices::Position::GNSSInterface;
 
 namespace HAL {
 namespace Boards {
 
 STM32Board::STM32Board() {
-	modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
+	//modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
 	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_5, "debug_uart_task");
+  gnss_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_9600, UartCommunicationInterface::UartNumber::UART_2, "modem_uart_task");
+
 	debug_controller_ = std::make_shared<DebugController::DebugController>(DebugInterface::MessageVerbosity::INFO_MSG, debug_uart_communication_);
+  gnss_interface_ = std::make_shared<GNSSInterface>(gnss_uart_communication_, debug_controller_); 
 
 	HAL_Init();
 	rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
-	rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
+	//rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
 	rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(debug_uart_communication_));
+  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(gnss_uart_communication_));
+
 	rtos_task_manager_->CreateTask(*debug_controller_);
+  rtos_task_manager_->CreateTask(*gnss_interface_);
 }
 
 STM32Board::~STM32Board() {
@@ -46,7 +55,9 @@ STM32Board::~STM32Board() {
 
 void STM32Board::InitPeripherals(AvailableModemInterfaces selected_modem) {
 	SystemClockConfig();
-	ConfigureModem(selected_modem);
+	//ConfigureModem(selected_modem);
+
+	osKernelStart();
 }
 
 void STM32Board::SystemClockConfig() {

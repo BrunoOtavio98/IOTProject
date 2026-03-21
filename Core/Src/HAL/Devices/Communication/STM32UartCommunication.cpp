@@ -57,7 +57,7 @@ void STM32UartCommunication::Task(void *params) {
 			callback_read_finish_(temp_data, rx_buffer_pos_);
 			rx_buffer_pos_ = 0;
 		}
-		TaskDelay(300);
+		TaskDelay(5);
 	}
 }
 
@@ -182,6 +182,24 @@ extern "C" {
 }
 
 extern "C" {
+
+	void USART2_IRQHandler(void)
+	{
+		STM32UartCommunication *current_uart = nullptr;
+		for(auto &uart : group_of_uarts) {
+			if(uart.first->Instance == USART2) {
+				current_uart = uart.second;
+			}
+		}
+
+		if(current_uart == nullptr) {
+			return;
+		}
+
+		HAL_UART_IRQHandler(current_uart->uart_handle_.get());
+	}
+
+
 	void UART4_IRQHandler(void)
 	{
 		STM32UartCommunication *current_uart = nullptr;
