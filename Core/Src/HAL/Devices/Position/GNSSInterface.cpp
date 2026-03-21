@@ -19,7 +19,8 @@ namespace Devices
 namespace Position
 {
 
-GNSSInterface::GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart, const std::shared_ptr<HAL::DebugController::DebugController> &debug_controler ) : 
+GNSSInterface::GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Interfaces::UartCommunicationInterface> gnss_uart, 
+							  const std::shared_ptr<HAL::DebugController::DebugController> &debug_controler ) : 
                             TaskWrapper("GNSS", 1250, nullptr, 2),
                             DebugInterface("GNSS"),
                             gnss_uart_(gnss_uart),
@@ -27,7 +28,6 @@ GNSSInterface::GNSSInterface( std::shared_ptr<HAL::Devices::Communication::Inter
                             insert_buffer_ctrl_(0),
 							process_buffer_ctrl_(0),
 							uart_buffer_receive_(),
-							empty_buffer_space_(kRxBufferSize),
                             nmea_parser_(std::make_unique<NMEAParser>()),
 							buffer_a_(),
 							buffer_b_()
@@ -54,19 +54,12 @@ void GNSSInterface::Task(void *params)
             if( nmea_parser_->ProcessNMEAMessage( nmea_message, nmea_data ) )
             {
                 UpdateGNSSData( nmea_data );
-
-				BasicGNSSData gnss_dta;
-				GetUpdatedGnssData( gnss_dta );
-
 				nmea_message.clear();
             }
 	
-			TaskDelay(1);
 		}
-		else
-		{
-			TaskDelay(5);
-		}
+
+		TaskDelay(10);
 	}
 }
 
@@ -125,117 +118,76 @@ void GNSSInterface::GetUpdatedGnssData( BasicGNSSData &gnss_data )
 {
 	BasicGNSSData *current = active_buffer_.load(std::memory_order_acquire);
 	gnss_data = *current;
-
-    char buffer1[120];
-    int lat_int = (int)(gnss_data.lat * 10000);
-    int lon_int = (int)(gnss_data.lon * 10000);
-    int alt_int = (int)(gnss_data.alt * 10000);
-    std::snprintf(buffer1, sizeof(buffer1), "lat: %d.%04d lon: %d.%04d alt: %d.%04d\n",
-                  lat_int / 10000, abs(lat_int) % 10000,
-                  lon_int / 10000, abs(lon_int) % 10000,
-                  alt_int / 10000, abs(alt_int) % 10000);
-    debug_controller_->PrintInfo(this, std::string(buffer1), true);
-
-    char buffer2[100];
-    int speed_int = (int)(gnss_data.speedKmh * 10000);
-    int course_int = (int)(gnss_data.courseDeg * 10000);
-    std::snprintf(buffer2, sizeof(buffer2), "Speed: %d.%04d course: %d.%04d\n",
-                  speed_int / 10000, abs(speed_int) % 10000,
-                  course_int / 10000, abs(course_int) % 10000);
-    debug_controller_->PrintInfo(this, std::string(buffer2), true);
 }
 
 void GNSSInterface::UartCallBack( const uint8_t *data, uint16_t size )
 {
-	if(data == nullptr || (empty_buffer_space_ < size) )
+	if(data == nullptr )
 	{
 		return;
 	}
 
-	std::string std_data( reinterpret_cast<const char*>(data), size );
-	debug_controller_->PrintInfo(this, std_data, true);
-
-	if(size >= (kRxBufferSize - insert_buffer_ctrl_) )
-	{
-		TaskEnterCriticalSection();
-		uint16_t empty_space_end = kRxBufferSize - insert_buffer_ctrl_;
-		std::memcpy(uart_buffer_receive_ + insert_buffer_ctrl_, data, empty_space_end);
-		insert_buffer_ctrl_ = 0;
-		TaskExitCriticalSection();
-		
-		data += empty_space_end;
-		size = size - empty_space_end;
-		empty_buffer_space_ -= empty_space_end;
-	}
-
+	int i = 0;
 	TaskEnterCriticalSection();
-	std::memcpy(uart_buffer_receive_ + insert_buffer_ctrl_, data, size);
-	insert_buffer_ctrl_ += size;
-	empty_buffer_space_ -= size;
+	while( i != size )
+	{
+		uart_buffer_receive_[insert_buffer_ctrl_] = data[i];
+
+		int next_write = GetNextIndex(insert_buffer_ctrl_);
+		if( next_write == process_buffer_ctrl_ )
+		{
+			process_buffer_ctrl_ = GetNextIndex(process_buffer_ctrl_);
+		}
+		insert_buffer_ctrl_ = next_write;
+
+		i++;
+	}
 	TaskExitCriticalSection();
 }
 
 bool GNSSInterface::GetNMEAFrame( std::string &nmea_frame )
-{
-	TaskEnterCriticalSection();
-	uint16_t safe_insert_buffer_ctrl = insert_buffer_ctrl_;
-	uint8_t safe_uart_buffer[kRxBufferSize] = "";
-	std::memcpy(safe_uart_buffer, uart_buffer_receive_, kRxBufferSize);
-	TaskExitCriticalSection();
+{	
+	nmea_frame.clear();
 
-	int16_t first_char = -1;
-	for(int i = process_buffer_ctrl_; i < kRxBufferSize; i++)
+	TaskEnterCriticalSection();
+	if( process_buffer_ctrl_ == insert_buffer_ctrl_ )
+	{	
+		TaskExitCriticalSection();
+		return false;
+	}
+
+	bool end_of_frame_found = false;
+	uint16_t tmp_process_buffer_ctrl = process_buffer_ctrl_;	
+
+	while( tmp_process_buffer_ctrl != insert_buffer_ctrl_ )
 	{
-		if( safe_uart_buffer[i] == '\r' )
-		{
-			first_char = i;
+		char c =  uart_buffer_receive_[tmp_process_buffer_ctrl];
+
+		if( c == '\r' )
+		{	
+			end_of_frame_found = true;
+			tmp_process_buffer_ctrl = GetNextIndex(tmp_process_buffer_ctrl);
+
+			c = uart_buffer_receive_[tmp_process_buffer_ctrl];
+			if( c == '\n' ) 
+			{
+				tmp_process_buffer_ctrl = GetNextIndex(tmp_process_buffer_ctrl);
+			}
+
 			break;
 		}
+	
+		nmea_frame += c;
+		tmp_process_buffer_ctrl = GetNextIndex( tmp_process_buffer_ctrl );
 	}
-
-	if(first_char == -1)
+	
+	if( end_of_frame_found == true )
 	{
-		for(int i = 0; i < safe_insert_buffer_ctrl; i++)
-		{
-			if( safe_uart_buffer[i] == '\r' )
-			{
-				first_char  = i;
-				break;
-			}
-		}
-
-		if(first_char == -1)
-		{
-			return false;
-		}
-
-		nmea_frame.assign( reinterpret_cast<const char*>(safe_uart_buffer + process_buffer_ctrl_), (kRxBufferSize - process_buffer_ctrl_) );
-		nmea_frame.append( reinterpret_cast<const char*>(safe_uart_buffer), first_char );
-		first_char++;
-
-		if(safe_uart_buffer[first_char] == '\n')
-		{
-			first_char++;
-		}
-
-		empty_buffer_space_ += (kRxBufferSize - process_buffer_ctrl_) + first_char;
-
-		process_buffer_ctrl_ = first_char;
+		process_buffer_ctrl_ = tmp_process_buffer_ctrl;
 	}
-	else
-	{
-		nmea_frame.assign( reinterpret_cast<const char*>(safe_uart_buffer + process_buffer_ctrl_), (first_char - process_buffer_ctrl_) );
-		first_char++;
 
-		if(safe_uart_buffer[first_char] == '\n')
-		{
-			first_char++;
-		}
-
-		empty_buffer_space_ += first_char - process_buffer_ctrl_;
-		process_buffer_ctrl_ = first_char;
-	}
-	return true;
+	TaskExitCriticalSection();
+	return end_of_frame_found;
 }
 
 float GNSSInterface::LatToDeg( float raw, char ns)
@@ -262,6 +214,18 @@ float GNSSInterface::LonToDeg( float raw, char ew )
         decimal = -decimal;
 
     return decimal;
+}
+
+int GNSSInterface::GetNextIndex(int index)
+{
+	int new_index = index + 1;
+
+	if( new_index == kRxBufferSize )
+	{
+		new_index = 0;
+	}
+
+	return new_index;
 }
 
 }

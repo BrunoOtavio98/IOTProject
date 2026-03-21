@@ -69,7 +69,6 @@ protected:
     uint16_t insert_buffer_ctrl_;
     uint16_t process_buffer_ctrl_;
     uint8_t uart_buffer_receive_[kRxBufferSize];
-    uint16_t empty_buffer_space_;
     std::unique_ptr<NMEAParser> nmea_parser_;
     
     BasicGNSSData buffer_a_;
@@ -77,7 +76,8 @@ protected:
     std::atomic<BasicGNSSData*> active_buffer_;
 
     void Task(void *params) override;
-
+    
+    int GetNextIndex(int index);
     float LatToDeg( float raw, char ns);
     float LonToDeg( float raw, char ew );
     void UpdateGNSSData( NMEAParser::NMEA_Data &nmea_data );
