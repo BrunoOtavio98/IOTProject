@@ -9,30 +9,31 @@
 #define SRC_HAL_BOARDS_STM32BOARD_H_
 
 #include "BoardInterface.h"
-#include "RTOSWrappers/TaskWrapper.h"
 #include "DebugController/DebugInterface.h"
+#include "RTOSWrappers/TaskWrapper.h"
 
-using HAL::RtosWrappers::TaskWrapper;
 using HAL::DebugController::DebugInterface;
+using HAL::RtosWrappers::TaskWrapper;
 
 namespace HAL {
 namespace Boards {
 
 class STM32Board : public BoardInterface,
-				   public TaskWrapper,
-				   public DebugInterface {
+				   public DebugInterface,
+				   public TaskWrapper {
 public:
 	STM32Board();
 	virtual ~STM32Board();
 
 	void InitPeripherals(AvailableModemInterfaces modem_interface) override;
+	void Task(void *params) override;
 
 private:
 	void SystemClockConfig();
 	void Error_Handler();
 	void ConfigureModem(AvailableModemInterfaces modem_interface);
-	void Task(void *params) override;
-	AvailableModemInterfaces selected_modem_;
+	void SetSPIForSDCard();
+
 };
 
 }

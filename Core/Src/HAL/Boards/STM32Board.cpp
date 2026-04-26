@@ -9,22 +9,22 @@
 #include <memory>
 
 #include "Devices/Communication/STM32UartCommunication.h"
+#include "Devices/Communication/STM32SPICommunication.h"
 #include "Devices/IOT/Interfaces/ModemInterface.h"
 #include "Devices/IOT/Modem/SIM7020E.h"
+#include "Devices/Position/GNSSInterface.h"
 #include "DebugController/DebugController.h"
+#include "DebugController/DebugInterface.h"
 #include "Storage/StorageInterface.h"
 #include "Storage/STM32SD.h"
-#include "cmsis_os.h"
-
 #include "RTOSWrappers/TaskWrapperManager.h"
-#include "DebugController/DebugInterface.h"
-#include "Devices/Position/GNSSInterface.h"
-#include "Storage/StorageInterface.h"
 
-#include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
+#include "stm32f4xx_hal.h"
 
 using HAL::Devices::Communication::STM32UartCommunication;
+using HAL::Devices::Communication::STM32SPICommunication;
+using HAL::Devices::Communication::Interfaces::SPIInterface;
 using HAL::Devices::Communication::Interfaces::UartCommunicationInterface;
 using HAL::Devices::IOT::Interfaces::ModemInterface;
 using HAL::Devices::IOT::Modem::SIM7020Modem;
@@ -39,52 +39,68 @@ using HAL::Storage::StorageInterface;
 namespace HAL {
 namespace Boards {
 
-STM32Board::STM32Board() : 
-  TaskWrapper("STM32Board", 400, nullptr, 3) 
+STM32Board::STM32Board() : DebugInterface("STM32Board"), 
+                           TaskWrapper("STM32Board", 500, nullptr, 2)
 {
 	//modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
-	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_5, "debug_uart_task");
-  gnss_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_9600, UartCommunicationInterface::UartNumber::UART_2, "modem_uart_task");
+	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_1, "debug_uart_task");
+  //gnss_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_9600, UartCommunicationInterface::UartNumber::UART_2, "modem_uart_task");
+rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
 
+  SetSPIForSDCard();
+  
 	debug_controller_ = std::make_shared<DebugController::DebugController>(DebugInterface::MessageVerbosity::INFO_MSG, debug_uart_communication_);
-  gnss_interface_ = std::make_shared<GNSSInterface>(gnss_uart_communication_, debug_controller_); 
+  //gnss_interface_ = std::make_shared<GNSSInterface>(gnss_uart_communication_, debug_controller_);
+	debug_controller_->RegisterModuleToDebug(this);
+
+  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(debug_uart_communication_));
+  rtos_task_manager_->CreateTask(*debug_controller_);
+
+  //rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(gnss_uart_communication_));
+  //rtos_task_manager_->CreateTask(*gnss_interface_);
+
+  //rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
+  rtos_task_manager_->CreateTask(*this);
 
   storage_interface_ = std::make_shared<Storage::STM32SD>();
 	storage_interface_->InitStorage();
 
 	HAL_Init();
-	rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
 	SystemClockConfig();
 }
 
-STM32Board::~STM32Board() {
+STM32Board::~STM32Board() 
+{
 
 }
 
-void STM32Board::Task(void *params) {
-  //modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4);
+void STM32Board::Task(void *params)
+{
+  char buffer[580] = {0};
+  char test[] = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.";  // 21 chars, pad to 22
 
-  storage_interface_ = std::make_shared<Storage::STM32SD>();
-  storage_interface_->InitStorage();
-	
-  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(debug_uart_communication_));
-  rtos_task_manager_->CreateTask(*debug_controller_);
+  while(1)
+  {   
+	  if( !sd_spi_communication_->WriteReadData( (uint8_t*)test, (uint8_t *)buffer, 576 ) )
+      {
+          debug_controller_->PrintInfo(this, "Failed to complete SPI transaction\n", true);
+      }
+      else
+      {
+          debug_controller_->PrintInfo(this, buffer, true);
+          debug_controller_->PrintInfo(this, "\n\n", true);
+          buffer[0] = '\0';
+      }
 
-  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(gnss_uart_communication_));
-  rtos_task_manager_->CreateTask(*gnss_interface_);
-  //rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
-  
-  ConfigureModem(selected_modem_);
-} 
+      TaskDelay(200);
+  }
+}
 
-void STM32Board::InitPeripherals(AvailableModemInterfaces selected_modem) {
-
-  osKernelInitialize();
-
+void STM32Board::InitPeripherals(AvailableModemInterfaces selected_modem) 
+{
   rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
 
-  rtos_task_manager_->CreateTask(*this);
-  selected_modem_ = selected_modem;
+  //ConfigureModem(selected_modem);
 
   osKernelStart();
 }
@@ -136,6 +152,18 @@ void STM32Board::ConfigureModem(AvailableModemInterfaces modem_interface) {
 		default:
 			break;
 	}
+}
+
+void STM32Board::SetSPIForSDCard()
+{
+  SPIInterface::SPIConfiguration spi_config;
+  spi_config.spi_number = SPIInterface::SPINumber::SPI_1;
+  spi_config.spi_mode = SPIInterface::SPIMode::Master;
+  spi_config.spi_data_size = SPIInterface::SPIDataSize::SPI_8Bits;
+  spi_config.spi_timming_mode = SPIInterface::SPITimmingMode::CPOL0_CPHA0;
+  spi_config.spi_baud_selector = SPIInterface::SPIBaudRatePrescaler::BaudRatePrescaler_2;
+
+  sd_spi_communication_ = std::make_shared<STM32SPICommunication>(spi_config);
 }
 
 void STM32Board::Error_Handler() {
