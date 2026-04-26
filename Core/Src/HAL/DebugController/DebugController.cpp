@@ -207,7 +207,7 @@ void DebugController::RegisterCallBackToReadMessages(std::function<void(const st
 
 void DebugController::DispatchMessage(const std::string &message)
 {
-	for(const auto cb: callbacks_)
+	for(const auto &cb: callbacks_)
 	{
 		cb(message);
 	}
