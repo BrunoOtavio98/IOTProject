@@ -3,22 +3,48 @@
 #ifndef SRC_HAL_STORAGE_STORAGEINTERFACE_H_
 #define SRC_HAL_STORAGE_STORAGEINTERFACE_H_
 
-namespace HAL {
-namespace Storage {
+#include <memory>
+
+namespace HAL 
+{
+namespace Devices 
+{
+namespace Communication 
+{    
+namespace Interfaces 
+{
+class SPIInterface;
+}
+}
+}
+}
+
+namespace HAL 
+{
+namespace Storage 
+{
 
 class StorageInterface
 {
 public:
-    StorageInterface() {
+    StorageInterface(std::shared_ptr<HAL::Devices::Communication::Interfaces::SPIInterface> spi_communication) 
+    {
 
     }
-    virtual ~StorageInterface() {
+
+    virtual ~StorageInterface()
+    {
 
     }
 
-    virtual bool InitStorage() {
+    virtual bool InitStorage() 
+    {
         return false;
     }
+
+protected:
+    std::shared_ptr<HAL::Devices::Communication::Interfaces::SPIInterface> spi_communication_;
+
 };
 
 }

@@ -16,7 +16,6 @@
 #include "DebugController/DebugController.h"
 #include "DebugController/DebugInterface.h"
 #include "Storage/StorageInterface.h"
-#include "Storage/STM32SD.h"
 #include "RTOSWrappers/TaskWrapperManager.h"
 
 #include "cmsis_os.h"
@@ -32,7 +31,6 @@ using HAL::DebugController::DebugController;
 using HAL::DebugController::DebugInterface;
 using HAL::RtosWrappers::TaskWrapperManager;
 using HAL::Devices::Position::GNSSInterface;
-using HAL::Storage::STM32SD;
 using HAL::Storage::StorageInterface;
 
 
@@ -62,8 +60,8 @@ rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
   //rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
   rtos_task_manager_->CreateTask(*this);
 
-  storage_interface_ = std::make_shared<Storage::STM32SD>();
-	storage_interface_->InitStorage();
+  // storage_interface_ = std::make_shared<Storage::STM32SD>();
+	// storage_interface_->InitStorage();
 
 	HAL_Init();
 	SystemClockConfig();
