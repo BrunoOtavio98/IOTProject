@@ -42,12 +42,36 @@ STM32SPICommunication::STM32SPICommunication( const SPIInterface::SPIConfigurati
 
     group_of_SPIs.insert( {spi_handle_.get(), this} );
 
+    ConfigureCSPin();
+
     HAL_SPI_Init(spi_handle_.get());
 }
 
 STM32SPICommunication::~STM32SPICommunication()
 {
 
+}
+
+void STM32SPICommunication::ConfigureCSPin()
+{   
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = GPIO_PIN_4;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+}
+
+bool STM32SPICommunication::SetCSPin( uint8_t pin_value )
+{
+    if( pin_value != 0 || pin_value != 1 )
+        return false;
+
+    HAL_GPIO_WritePin( GPIOA, GPIO_PIN_4, static_cast<GPIO_PinState>(pin_value) );
+    return true;
 }
 
 bool STM32SPICommunication::WriteDataIT( const uint8_t *data, uint16_t data_size, std::function<void(void)> callback_write_finish )

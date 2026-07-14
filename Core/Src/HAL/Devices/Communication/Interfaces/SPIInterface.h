@@ -82,6 +82,7 @@ public:
     virtual bool ReadData( uint8_t *read_buffer, uint16_t data_size ) = 0;
     virtual bool ReadDataIT(  uint8_t *read_buffer, uint16_t data_size, std::function<void(void)> callback_read_finish ) = 0;
     virtual bool WriteReadData( const uint8_t *data_write, uint8_t *data_read, uint16_t data_size ) = 0;
+    virtual bool SetCSPin( uint8_t pin_value ) = 0;
 
 };
 
