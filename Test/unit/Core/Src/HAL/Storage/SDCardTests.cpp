@@ -55,6 +55,11 @@ public:
         return SendCommand(static_cast<SDCommand>(Cmd0Value()), argument, response, response_buffer_size, crc_enabled);
     }
 
+     bool SendCommandCmd8(uint32_t argument, uint8_t *response, uint16_t response_buffer_size, bool crc_enabled)
+    {
+        return SendCommand(static_cast<SDCommand>(Cmd8Value()), argument, response, response_buffer_size, crc_enabled);
+    }
+
     SDCardHelper(std::shared_ptr<MockSPICommunicationInterface> spi_comm) : SDCard(spi_comm)
     {
     }
@@ -97,7 +102,7 @@ TEST_F(SDCardTests, GetStartValidByteFromBufferReturnsFalseWhenAllBytesAreFF)
     EXPECT_FALSE(sd_card_.GetStartValidByteFromBuffer(&index, buffer, sizeof(buffer)));
 }
 
-TEST_F(SDCardTests, SendCommandBuildsCommandFrameAndReturnsResponse)
+TEST_F(SDCardTests, SendCommandBuildsCommandFrameAndReturnsResponseForCmd0)
 {
     uint8_t response[5] = {0};
     const uint8_t expected_read_back[] = {0xFF, 0xFF, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -123,6 +128,104 @@ TEST_F(SDCardTests, SendCommandBuildsCommandFrameAndReturnsResponse)
 
     ASSERT_TRUE(sd_card_.SendCommandCmd0(0x0, response, sizeof(response), true));
     EXPECT_EQ(response[0], 0x01u);
+    EXPECT_EQ(response[1], 0x00u);
+    EXPECT_EQ(response[2], 0x00u);
+    EXPECT_EQ(response[3], 0x00u);
+    EXPECT_EQ(response[4], 0x00u);
+}
+
+TEST_F(SDCardTests, SendCommandBuildsCommandFrameAndReturnsResponseForCmd8)
+{
+    uint8_t response[5] = {0};
+    uint32_t argument = 0x1234;
+    const uint8_t expected_read_back[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xCA, 0xFE, 0xBA, 0xBE, 0xBE, 0xFF, 0xFF, 0xFF, 0xFF};
+
+    EXPECT_CALL(*spi_comm_, SetCSPin(0)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u))
+        .WillOnce([&](const uint8_t *data, uint16_t data_size) {
+            EXPECT_EQ(data_size, 6u);
+            EXPECT_EQ(data[0], 0x40u | sd_card_.Cmd8Value());
+            EXPECT_EQ(data[1], 0x00u);
+            EXPECT_EQ(data[2], 0x00u);
+            EXPECT_EQ(data[3], 0x12u);
+            EXPECT_EQ(data[4], 0x34u);
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteReadData(::testing::An<const uint8_t*>(), ::testing::An<uint8_t*>(), 16u))
+        .WillOnce([&](const uint8_t *data_write, uint8_t *data_read, uint16_t data_size) {
+            EXPECT_EQ(data_size, 16u);
+            memcpy(data_read, expected_read_back, sizeof(expected_read_back));
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, SetCSPin(1)).WillOnce(::testing::Return(true));
+
+    ASSERT_TRUE(sd_card_.SendCommandCmd8(argument, response, sizeof(response), true));
+    EXPECT_EQ(response[0], 0xCAu);
+    EXPECT_EQ(response[1], 0xFEu);
+    EXPECT_EQ(response[2], 0xBAu);
+    EXPECT_EQ(response[3], 0xBEu);
+    EXPECT_EQ(response[4], 0xBEu);
+}
+
+TEST_F(SDCardTests, SendCommandBuildsCommandFrameAndSDCardDoesNotResponds)
+{
+    uint8_t response[5] = {0};
+    const uint8_t expected_read_back[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+    EXPECT_CALL(*spi_comm_, SetCSPin(0)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u))
+        .WillOnce([&](const uint8_t *data, uint16_t data_size) {
+            EXPECT_EQ(data_size, 6u);
+            EXPECT_EQ(data[0], 0x40u | sd_card_.Cmd0Value());
+            EXPECT_EQ(data[1], 0x00u);
+            EXPECT_EQ(data[2], 0x00u);
+            EXPECT_EQ(data[3], 0x00u);
+            EXPECT_EQ(data[4], 0x00u);
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteReadData(::testing::An<const uint8_t*>(), ::testing::An<uint8_t*>(), 16u))
+        .WillOnce([&](const uint8_t *data_write, uint8_t *data_read, uint16_t data_size) {
+            EXPECT_EQ(data_size, 16u);
+            memcpy(data_read, expected_read_back, sizeof(expected_read_back));
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, SetCSPin(1)).WillOnce(::testing::Return(true));
+
+    ASSERT_FALSE(sd_card_.SendCommandCmd0(0x0, response, sizeof(response), true));
+    EXPECT_EQ(response[0], 0x00u);
+    EXPECT_EQ(response[1], 0x00u);
+    EXPECT_EQ(response[2], 0x00u);
+    EXPECT_EQ(response[3], 0x00u);
+    EXPECT_EQ(response[4], 0x00u);
+}
+
+TEST_F(SDCardTests, SendCommandBuildsCommandFrameOutOfBoundsIndex)
+{
+    uint8_t response[5] = {0};
+    uint32_t argument = 0xABCDEF;
+    const uint8_t expected_read_back[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0xFF, 0xFF};
+
+    EXPECT_CALL(*spi_comm_, SetCSPin(0)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u))
+        .WillOnce([&](const uint8_t *data, uint16_t data_size) {
+            EXPECT_EQ(data_size, 6u);
+            EXPECT_EQ(data[0], 0x40u | sd_card_.Cmd8Value());
+            EXPECT_EQ(data[1], 0x00u);
+            EXPECT_EQ(data[2], 0xABu);
+            EXPECT_EQ(data[3], 0xCDu);
+            EXPECT_EQ(data[4], 0xEFu);
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteReadData(::testing::An<const uint8_t*>(), ::testing::An<uint8_t*>(), 16u))
+        .WillOnce([&](const uint8_t *data_write, uint8_t *data_read, uint16_t data_size) {
+            EXPECT_EQ(data_size, 16u);
+            memcpy(data_read, expected_read_back, sizeof(expected_read_back));
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, SetCSPin(1)).WillOnce(::testing::Return(true));
+
+    ASSERT_FALSE(sd_card_.SendCommandCmd8(argument, response, sizeof(response), true));
+    EXPECT_EQ(response[0], 0x00u);
     EXPECT_EQ(response[1], 0x00u);
     EXPECT_EQ(response[2], 0x00u);
     EXPECT_EQ(response[3], 0x00u);
