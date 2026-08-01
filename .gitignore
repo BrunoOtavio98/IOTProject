@@ -37,3 +37,6 @@ Core/Src/main.cpp
 Core/Src/syscalls.c
 Core/Src/sysmem.c
 Core/Inc/*
+.metadata/*
+*.cyclo
+*.launch
