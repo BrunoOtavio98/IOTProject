@@ -229,10 +229,10 @@ bool SDCard::SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, u
     memset(empty_write, 0xFF, sizeof(empty_write));
 
     sd_command[0] = 0x40 | cmd;
-    sd_command[1] = (local_argument >> 24) && 0xFF;
-    sd_command[2] = (local_argument >> 16) && 0xFF;
-    sd_command[3] = (local_argument >> 8) && 0xFF;
-    sd_command[4] =  local_argument && 0xFF;
+    sd_command[1] = (local_argument >> 24) & 0xFF;
+    sd_command[2] = (local_argument >> 16) & 0xFF;
+    sd_command[3] = (local_argument >> 8) & 0xFF;
+    sd_command[4] =  local_argument & 0xFF;
 
     if( crc_enabled )
     {

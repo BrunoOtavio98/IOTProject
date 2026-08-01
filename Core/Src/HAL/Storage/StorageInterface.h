@@ -27,7 +27,8 @@ namespace Storage
 class StorageInterface
 {
 public:
-    StorageInterface(std::shared_ptr<HAL::Devices::Communication::Interfaces::SPIInterface> spi_communication) 
+    StorageInterface(std::shared_ptr<HAL::Devices::Communication::Interfaces::SPIInterface> spi_communication) :
+        spi_communication_(spi_communication)
     {
 
     }
