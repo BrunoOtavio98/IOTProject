@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <array>
 #include <cstring>
 
 #include "Core/Src/HAL/Devices/Communication/Interfaces/Mocks/MockSPICommunicationInterface.h"
@@ -55,9 +56,19 @@ public:
         return SendCommand(static_cast<SDCommand>(Cmd0Value()), argument, response, response_buffer_size, crc_enabled);
     }
 
-     bool SendCommandCmd8(uint32_t argument, uint8_t *response, uint16_t response_buffer_size, bool crc_enabled)
+    bool SendCommandCmd8(uint32_t argument, uint8_t *response, uint16_t response_buffer_size, bool crc_enabled)
     {
         return SendCommand(static_cast<SDCommand>(Cmd8Value()), argument, response, response_buffer_size, crc_enabled);
+    }
+
+    bool InitStorageWrapper()
+    {
+        return InitStorage();
+    }
+
+    uint8_t CurrentVersion() const
+    {
+        return static_cast<uint8_t>(SdCurrentVersion);
     }
 
     SDCardHelper(std::shared_ptr<MockSPICommunicationInterface> spi_comm) : SDCard(spi_comm)
@@ -230,6 +241,74 @@ TEST_F(SDCardTests, SendCommandBuildsCommandFrameOutOfBoundsIndex)
     EXPECT_EQ(response[2], 0x00u);
     EXPECT_EQ(response[3], 0x00u);
     EXPECT_EQ(response[4], 0x00u);
+}
+
+TEST_F(SDCardTests, InitStorageSucceedsWithExpectedSdCardSequence)
+{
+    size_t write_read_call_count = 0;
+
+    EXPECT_CALL(*spi_comm_, SetCSPin(::testing::_)).WillRepeatedly(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 75u)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u)).Times(6).WillRepeatedly(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteReadData(::testing::An<const uint8_t*>(), ::testing::An<uint8_t*>(), 16u))
+        .Times(6)
+        .WillRepeatedly([&](const uint8_t *, uint8_t *data_read, uint16_t) {
+            std::array<uint8_t, 16> read_back = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+            switch (write_read_call_count++)
+            {
+                case 0:
+                    read_back = {0xFF, 0xFF, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+                    break;
+                case 1:
+                    read_back = {0xAA, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+                    break;
+                case 2:
+                    read_back = {0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+                    break;
+                case 3:
+                    read_back = {0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+                    break;
+                case 4:
+                    read_back = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+                    break;
+                case 5:
+                    read_back = {0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+                    break;
+                default:
+                    break;
+            }
+
+            memcpy(data_read, read_back.data(), read_back.size());
+            return true;
+        });
+
+    ASSERT_TRUE(sd_card_.InitStorageWrapper());
+    EXPECT_EQ(sd_card_.CurrentVersion(), 1u);
+}
+
+TEST_F(SDCardTests, InitStorageFailsWhenCardDoesNotLeaveIdleState)
+{
+    EXPECT_CALL(*spi_comm_, SetCSPin(::testing::_)).WillRepeatedly(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 75u)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u)).Times(1).WillRepeatedly(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteReadData(::testing::An<const uint8_t*>(), ::testing::An<uint8_t*>(), 16u))
+        .WillOnce([&](const uint8_t *, uint8_t *data_read, uint16_t) {
+            const std::array<uint8_t, 16> read_back = {0xFF, 0xFF, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                                      0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+            memcpy(data_read, read_back.data(), read_back.size());
+            return true;
+        });
+
+    ASSERT_FALSE(sd_card_.InitStorageWrapper());
+    EXPECT_EQ(sd_card_.CurrentVersion(), 3u);
 }
 
 }
