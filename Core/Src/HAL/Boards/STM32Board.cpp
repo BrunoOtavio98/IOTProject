@@ -17,6 +17,7 @@
 #include "DebugController/DebugInterface.h"
 #include "Storage/StorageInterface.h"
 #include "RTOSWrappers/TaskWrapperManager.h"
+#include "Storage/SDCard.h"
 
 #include "cmsis_os.h"
 #include "stm32f4xx_hal.h"
@@ -32,7 +33,7 @@ using HAL::DebugController::DebugInterface;
 using HAL::RtosWrappers::TaskWrapperManager;
 using HAL::Devices::Position::GNSSInterface;
 using HAL::Storage::StorageInterface;
-
+using HAL::Storage::SDCard;
 
 namespace HAL {
 namespace Boards {
@@ -43,9 +44,7 @@ STM32Board::STM32Board() : DebugInterface("STM32Board"),
 	//modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
 	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_1, "debug_uart_task");
   //gnss_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_9600, UartCommunicationInterface::UartNumber::UART_2, "modem_uart_task");
-rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
-
-  SetSPIForSDCard();
+  rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
   
 	debug_controller_ = std::make_shared<DebugController::DebugController>(DebugInterface::MessageVerbosity::INFO_MSG, debug_uart_communication_);
   //gnss_interface_ = std::make_shared<GNSSInterface>(gnss_uart_communication_, debug_controller_);
@@ -54,15 +53,14 @@ rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
   rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(debug_uart_communication_));
   rtos_task_manager_->CreateTask(*debug_controller_);
 
+  ConfigureSDCard();
+
   //rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(gnss_uart_communication_));
   //rtos_task_manager_->CreateTask(*gnss_interface_);
 
   //rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
   rtos_task_manager_->CreateTask(*this);
-
-  // storage_interface_ = std::make_shared<Storage::STM32SD>();
-	// storage_interface_->InitStorage();
-
+  
 	HAL_Init();
 	SystemClockConfig();
 }
@@ -74,10 +72,23 @@ STM32Board::~STM32Board()
 
 void STM32Board::Task(void *params)
 {
+  //char buffer[580] = {0};
+  //char test[] = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.";  // 21 chars, pad to 22
+
   while(1)
   {   
+	  // if( !sd_spi_communication_->WriteReadData( (uint8_t*)test, (uint8_t *)buffer, 576 ) )
+    //   {
+    //       debug_controller_->PrintInfo(this, "Failed to complete SPI transaction\n", true);
+    //   }
+    //   else
+    //   {
+    //       debug_controller_->PrintInfo(this, buffer, true);
+    //       debug_controller_->PrintInfo(this, "\n\n", true);
+    //       buffer[0] = '\0';
+    //   }
 
-      TaskDelay(20000);
+      TaskDelay(200);
   }
 }
 
@@ -139,7 +150,7 @@ void STM32Board::ConfigureModem(AvailableModemInterfaces modem_interface) {
 	}
 }
 
-void STM32Board::SetSPIForSDCard()
+void STM32Board::ConfigureSDCard()
 {
   SPIInterface::SPIConfiguration spi_config;
   spi_config.spi_number = SPIInterface::SPINumber::SPI_1;
@@ -149,6 +160,9 @@ void STM32Board::SetSPIForSDCard()
   spi_config.spi_baud_selector = SPIInterface::SPIBaudRatePrescaler::BaudratePrescaler_128;
 
   sd_spi_communication_ = std::make_shared<STM32SPICommunication>(spi_config);
+
+  storage_interface_ = std::make_unique<SDCard>(sd_spi_communication_, debug_controller_);
+  rtos_task_manager_->CreateTask( *std::dynamic_pointer_cast<SDCard>(storage_interface_) );
 }
 
 void STM32Board::Error_Handler() {

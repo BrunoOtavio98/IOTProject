@@ -1,22 +1,28 @@
 #include "Storage/SDCard.h"
 #include "Devices/Communication/Interfaces/SPIInterface.h"
 #include "Utils/CRC.h"
+#include "DebugController/DebugController.h"
 #include <string.h>
 
 using HAL::Utils::CRC;
 using HAL::Devices::Communication::Interfaces::SPIInterface;
 using HAL::RtosWrappers::TaskWrapper;
+using HAL::DebugController::DebugInterface;
 
 namespace HAL 
 {
 namespace Storage 
 {
 
-SDCard::SDCard( std::shared_ptr<HAL::Devices::Communication::Interfaces::SPIInterface> spi_communication ) : 
+SDCard::SDCard( const std::shared_ptr<HAL::Devices::Communication::Interfaces::SPIInterface> &spi_communication,
+                const std::shared_ptr<HAL::DebugController::DebugController> &debug_controler  ) : 
                 StorageInterface(spi_communication),
                 TaskWrapper("SDCard", 500, nullptr, 2),
-                SdCurrentVersion(SDCardVersion::SDInvalid)
+                DebugInterface("SDCard"),
+                SdCurrentVersion(SDCardVersion::SDInvalid),
+                debug_controler_(debug_controler)
 {
+    debug_controler_->RegisterModuleToDebug(this);
 }
 
 SDCard::~SDCard()

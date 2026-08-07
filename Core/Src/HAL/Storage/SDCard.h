@@ -2,8 +2,11 @@
 #ifndef SRC_HAL_STORAGE_SDCARD_H_
 #define SRC_HAL_STORAGE_SDCARD_H_
 
+#include <memory>
+
 #include "Storage/StorageInterface.h"
 #include "RTOSWrappers/TaskWrapper.h"
+#include "DebugController/DebugInterface.h"
 
 namespace HAL
 {
@@ -21,17 +24,27 @@ class SPIInterface;
 
 namespace HAL 
 {
+namespace DebugController 
+{
+class DebugController;
+}
+}
+
+namespace HAL 
+{
 namespace Storage 
 {
 
 class SDCard : public HAL::Storage::StorageInterface,
-               public HAL::RtosWrappers::TaskWrapper
+               public HAL::RtosWrappers::TaskWrapper,
+               public HAL::DebugController::DebugInterface
 {
 public:
     static constexpr int kMaxReponseSizeBytes = 5;
     static constexpr uint8_t kR1BResponse = 0xFE;
 
-    SDCard(std::shared_ptr<HAL::Devices::Communication::Interfaces::SPIInterface> spi_communication);
+    SDCard( const std::shared_ptr<HAL::Devices::Communication::Interfaces::SPIInterface> &spi_communication, 
+            const std::shared_ptr<HAL::DebugController::DebugController> &debug_controler );
 
     virtual ~SDCard();
 
@@ -92,6 +105,7 @@ protected:
 
     bool SdCardInitialized;
     SDCardVersion SdCurrentVersion;
+    std::shared_ptr<HAL::DebugController::DebugController> debug_controler_;
 };
 
 }

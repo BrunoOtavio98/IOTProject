@@ -32,7 +32,7 @@ private:
 	void SystemClockConfig();
 	void Error_Handler();
 	void ConfigureModem(AvailableModemInterfaces modem_interface);
-	void SetSPIForSDCard();
+	void ConfigureSDCard();
 
 };
 
