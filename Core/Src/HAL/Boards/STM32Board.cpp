@@ -146,7 +146,7 @@ void STM32Board::SetSPIForSDCard()
   spi_config.spi_mode = SPIInterface::SPIMode::Master;
   spi_config.spi_data_size = SPIInterface::SPIDataSize::SPI_8Bits;
   spi_config.spi_timming_mode = SPIInterface::SPITimmingMode::CPOL0_CPHA0;
-  spi_config.spi_baud_selector = SPIInterface::SPIBaudRatePrescaler::BaudRatePrescaler_2;
+  spi_config.spi_baud_selector = SPIInterface::SPIBaudRatePrescaler::BaudratePrescaler_128;
 
   sd_spi_communication_ = std::make_shared<STM32SPICommunication>(spi_config);
 }

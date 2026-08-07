@@ -163,6 +163,8 @@ void STM32SPICommunication::PrescalerCalculation( SPIBaudRatePrescaler prescaler
         case SPIBaudRatePrescaler::BaudratePrescaler_64:
             spi_handle_->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
             break;
+        case SPIBaudRatePrescaler::BaudratePrescaler_128:
+            spi_handle_->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
         default:
             break;
     }

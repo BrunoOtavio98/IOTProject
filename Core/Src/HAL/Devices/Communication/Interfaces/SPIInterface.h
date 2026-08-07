@@ -55,7 +55,8 @@ public:
         BaudratePrescaler_8,
         BaudratePrescaler_16,
         BaudratePrescaler_32,
-        BaudratePrescaler_64
+        BaudratePrescaler_64,
+        BaudratePrescaler_128
     };
 
     typedef struct
