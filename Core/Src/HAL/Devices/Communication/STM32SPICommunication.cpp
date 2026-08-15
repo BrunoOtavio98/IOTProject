@@ -44,6 +44,8 @@ STM32SPICommunication::STM32SPICommunication( const SPIInterface::SPIConfigurati
 
     ConfigureCSPin();
 
+    HAL_GPIO_WritePin( GPIOA, GPIO_PIN_4, GPIO_PIN_SET );
+
     HAL_SPI_Init(spi_handle_.get());
 }
 
@@ -60,17 +62,16 @@ void STM32SPICommunication::ConfigureCSPin()
     GPIO_InitStruct.Pin = GPIO_PIN_4;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
 
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
 bool STM32SPICommunication::SetCSPin( uint8_t pin_value )
 {
-    if( pin_value != 0 || pin_value != 1 )
-        return false;
+    GPIO_PinState state = (pin_value == 1) ? GPIO_PIN_SET : GPIO_PIN_RESET;
 
-    HAL_GPIO_WritePin( GPIOA, GPIO_PIN_4, static_cast<GPIO_PinState>(pin_value) );
+    HAL_GPIO_WritePin( GPIOA, GPIO_PIN_4, state );
     return true;
 }
 

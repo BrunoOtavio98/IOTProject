@@ -34,7 +34,8 @@ void SDCard::Task(void *params)
     while(1)
     {
         if( SdCurrentVersion == SDCardVersion::SDInvalid )
-        {
+        {   
+            debug_controler_->PrintDebug(this, "Running InitStorage\n", true);
             InitStorage();
         }
 
@@ -58,14 +59,17 @@ bool SDCard::InitStorage()
         spi_communication_->WriteData( write_buffer, 75 );
 
         spi_communication_->SetCSPin(0);
+
         status = SendCommand( SDCommand::CMD0, argument, response_buffer, sizeof(response_buffer), true );
         if( status == false )
-        {
+        {   
+            debug_controler_->PrintDebug(this, "Failed to send first CMD0\n", true);
             break;
         }
 
         if( response_buffer[0] != SDResponseMask::IdleState )
         {
+            debug_controler_->PrintInfo(this, "SD card not in IDLE\n", true);
             status = false;
             break;
         }
@@ -73,90 +77,102 @@ bool SDCard::InitStorage()
         argument = 0x1AA;
         status = SendCommand( SDCommand::CMD8, argument, response_buffer, sizeof(response_buffer), true );
 
-        uint16_t *rsp_ptr = (uint16_t*)&response_buffer[0];
-        *rsp_ptr = *rsp_ptr & 0xFFF;
+        uint16_t rsp_echo = response_buffer[4];
+        rsp_echo = rsp_echo | (uint16_t)( (response_buffer[3] & 0xF) << 8);
 
         // If error or no response
-        if( status == false || response_buffer[4] != 0x00 )
+        if( status == false || response_buffer[0] > SDResponseMask::IdleState )
         {
             bool is_sd_busy = true;
             do
-            {   
-
-                // status = SendCommand( SDCommand::CMD55, 0x00, response_buffer, sizeof(response_buffer), false );
-                // if( status == false )
-                // {
-                //     break;
-                // }
-
-                argument = 0x0;
-                status = SendCommand( SDCommand::ACMD41, argument, response_buffer, sizeof(response_buffer), false );
+            {
+                status = SendCommand( SDCommand::CMD55, 0x00, response_buffer, sizeof(response_buffer), false );
                 if( status == false )
                 {
                     break;
                 }
 
+                argument = 0x0;
+                status = SendCommand( SDCommand::ACMD41, argument, response_buffer, sizeof(response_buffer), false );
+                if( status == false )
+                {   
+                    debug_controler_->PrintDebug(this, "Failed to send ACMD41\n", true);
+                    break;
+                }
+
                 is_sd_busy = (response_buffer[0] & SDResponseMask::IdleState);
+                TaskDelay(10);
             } while( is_sd_busy );
 
             if( status == false) 
-            {
+            {   
+                debug_controler_->PrintDebug(this, "Failed on loop for ACMD41\n", true);
                 break;
             }
 
             SdCurrentVersion = SDCardVersion::SDVer1;
         }
-        else if( *rsp_ptr == 0x1AA )
-        {   
-            
-            // status = SendCommand( SDCommand::CMD55, 0x00, response_buffer, sizeof(response_buffer), false );
-            // if( status == false )
-            // {
-            //     break;
-            // }
+        else if( rsp_echo == 0x1AA )
+        {            
+            status = SendCommand( SDCommand::CMD55, 0x00, response_buffer, sizeof(response_buffer), false );
+            if( status == false )
+            {
+                break;
+            }
 
             argument = (0x01 << 30);
             status = SendCommand( SDCommand::ACMD41, argument, response_buffer, sizeof(response_buffer), false );
             if( status == false || response_buffer[0] > 0x01 )
-            {
+            {   
+                debug_controler_->PrintDebug(this, "Failed to send ACMD41\n", true);
                 status = false;
                 break;
             }
 
             while( response_buffer[0] == 0x01 )
             {
-                // status = SendCommand( SDCommand::CMD55, 0x00, response_buffer, sizeof(response_buffer), false );
-                // if( status == false )
-                // {
-                //     break;
-                // }
+                status = SendCommand( SDCommand::CMD55, 0x00, response_buffer, sizeof(response_buffer), false );
+                if( status == false )
+                {
+                    break;
+                }
 
                 status = SendCommand( SDCommand::ACMD41, argument, response_buffer, sizeof(response_buffer), false );
                 if( status == false || response_buffer[0] > 0x01 )
                 {   
+                    debug_controler_->PrintDebug(this, "Failed to send ACMD41 on loop\n", true);
                     status = false;
                     break;
                 }
             }
 
             if( status == false )
-            {
+            {   
+                debug_controler_->PrintDebug(this, "Failed on loop\n", true);
                 break;
             }
 
             argument = 0x00;
             status = SendCommand( SDCommand::CMD58, argument, response_buffer, sizeof(response_buffer), false );
             if( status == false || response_buffer[4] != 0x00 )
-            {
+            {   
+                debug_controler_->PrintDebug(this, "Failed to send CMD58\n", true);
                 status = false;
                 break;
             }
 
-            uint32_t *OCR = (uint32_t *)&response_buffer[0];
-            uint8_t ccs_set = (*OCR) & CCS_MASK;
+            uint32_t OCR =
+                (static_cast<uint32_t>(response_buffer[1]) << 24) |
+                (static_cast<uint32_t>(response_buffer[2]) << 16) |
+                (static_cast<uint32_t>(response_buffer[3]) << 8)  |
+                 static_cast<uint32_t>(response_buffer[4]);
+
+            uint8_t ccs_set = (OCR & CCS_MASK) >> 30;
 
             if(ccs_set)
             {
+                debug_controler_->PrintDebug(this, "Success on Init\n", true);
+                debug_controler_->PrintDebug(this, "SDVER BlockAddr\n", true);
                 SdCurrentVersion = SDCardVersion::SDVer2_BlockAddr;
             }
             else
@@ -164,24 +180,28 @@ bool SDCard::InitStorage()
                 argument = 0x200;
                 status = SendCommand( SDCommand::CMD16, argument, response_buffer, sizeof(response_buffer), false );
                 if( status == false || response_buffer[0] != 0x00 )
-                {
+                {   
+                    debug_controler_->PrintDebug(this, "Failed to sendCMD16\n", true);
                     status = false;
                     break;
                 }
 
+                debug_controler_->PrintDebug(this, "Success on Init\n", true);
+                debug_controler_->PrintDebug(this, "SDVer2 ByteAddr\n", true);
                 SdCurrentVersion = SDCardVersion::SDVer2_ByteAddr;
             }
 
         }
-        else if(  *rsp_ptr != 0x1AA )
-        {
+        else if(  rsp_echo != 0x1AA )
+        {   
+            debug_controler_->PrintDebug(this, "RspPtr != 0x1AA\n", true);
             status = false;
             break;   
         }
 
     } while( 0 );
 
-    spi_communication_->SetCSPin(0);
+    spi_communication_->SetCSPin(1);
     return status;
 }
 
@@ -228,7 +248,8 @@ bool SDCard::SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, u
     bool status;
 
     if( response == nullptr || ( response_buffer_size < expected_cmd_rsp_size ) )
-    {
+    {   
+        debug_controler_->PrintInfo(this, "Error on input data\n", true);
         return false;
     }
 
@@ -251,14 +272,16 @@ bool SDCard::SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, u
     {
         status = spi_communication_->SetCSPin( 0 );
         if( status == false )
-        {
+        {   
+            debug_controler_->PrintInfo(this, "Failed to set CS to low\n", true);
             break;
         }
 
         // Write the command
         status = spi_communication_->WriteData( sd_command, sizeof(sd_command) );
         if(status == false)
-        {
+        {   
+            debug_controler_->PrintInfo(this, "Failed to write command\n", true);
             break;
         }
 
@@ -272,18 +295,24 @@ bool SDCard::SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, u
         status = spi_communication_->WriteReadData( empty_write, data_read_back, sizeof(data_read_back) );
         if( status == false )
         {
+            debug_controler_->PrintInfo(this, "Failed to read data back\n", true);
             break;
         }
+
+        // uint8_t dummy_buffer = 0xAB;
+        // spi_communication_->WriteData( &dummy_buffer, 1);
 
         // If theres no valid byte in the response, it means the sd card for some reason does not responded. driver will interpret as fail
         if( GetStartValidByteFromBuffer( &index, data_read_back, sizeof(data_read_back) ) == false )
         {
+            debug_controler_->PrintInfo(this, "SD card did not respond\n", true);
             status = false;
             break;
         }
 
         if( index + expected_cmd_rsp_size > sizeof(data_read_back) )
         {
+            debug_controler_->PrintInfo(this, "Out of bound data rsp\n", true);
             status = false;
             break;
         }
