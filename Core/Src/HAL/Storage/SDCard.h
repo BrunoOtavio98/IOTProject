@@ -40,8 +40,6 @@ class SDCard : public HAL::Storage::StorageInterface,
                public HAL::DebugController::DebugInterface
 {
 public:
-    static constexpr int kMaxReponseSizeBytes = 5;
-    static constexpr uint8_t kR1BResponse = 0xFE;
 
     SDCard( const std::shared_ptr<HAL::Devices::Communication::Interfaces::SPIInterface> &spi_communication, 
             const std::shared_ptr<HAL::DebugController::DebugController> &debug_controler );
@@ -51,6 +49,14 @@ public:
 protected:
 
     const uint32_t CCS_MASK = 0x01 << 30;
+    static constexpr int kMaxReponseSizeBytes = 5;
+    static constexpr uint8_t kR1BResponse = 0xFE;
+    static constexpr uint16_t kMaxBlockLen = 512;
+    static constexpr uint8_t kNumberClocksTimeout = 60;
+
+    static constexpr uint8_t kStartBlockToken = 0xFE;
+    static constexpr uint8_t kStartMultiBlockWriteToken = 0xFC;
+    static constexpr uint8_t kStopMultiBlockWriteToken = 0xFD;
 
     enum SDCommand
     {
@@ -93,10 +99,21 @@ protected:
 
     bool InitStorage() override;
     void Task(void *params) override;
+    uint16_t ReadData( uint32_t address, uint8_t *buffer_read, uint16_t buffer_size ) override;
+    uint16_t WriteData( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size ) override;
+
+    uint16_t ReadSingleBlock( uint32_t address, uint8_t *buffer_read, uint16_t buffer_size );
+    uint16_t ReadMultipleBlocks( uint32_t address, uint8_t *buffer_read, uint16_t buffer_size );
+
+    uint16_t WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size );
+    uint16_t WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size );
+
     bool SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, uint16_t response_buffer_size, bool crc_enabled );
     uint8_t GetCmdResponseSizeBytes( SDCommand cmd );
     bool GetStartValidByteFromBuffer( uint8_t *index_out, uint8_t *buffer, uint16_t buffer_size );
     bool isAnApplicationCommand( SDCommand cmd );
+    bool ErrorTokenReturned( uint8_t token );
+    bool BuildSDCommand( SDCommand cmd, uint32_t argument, uint8_t *buffer, uint16_t buffer_size, bool crc_enabled );
 
     constexpr bool ResposeFlagSet( uint8_t response, SDResponseMask mask )
     {
@@ -106,6 +123,7 @@ protected:
     bool SdCardInitialized;
     SDCardVersion SdCurrentVersion;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controler_;
+    uint16_t block_len_;
 };
 
 }

@@ -73,8 +73,7 @@ STM32Board::~STM32Board()
 void STM32Board::Task(void *params)
 {
   while(1)
-  {   
-
+  {
       TaskDelay(20000);
   }
 }
