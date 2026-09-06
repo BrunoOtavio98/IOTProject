@@ -57,6 +57,7 @@ protected:
     static constexpr uint8_t kStartBlockToken = 0xFE;
     static constexpr uint8_t kStartMultiBlockWriteToken = 0xFC;
     static constexpr uint8_t kStopMultiBlockWriteToken = 0xFD;
+    static constexpr uint8_t kDataResponseTokenAccepted = 0x2;
 
     enum SDCommand
     {
@@ -67,6 +68,7 @@ protected:
         CMD9 = 9,
         CMD10 = 10,
         CMD12 = 12,
+        CMD13 = 13,
         CMD16 = 16,
         CMD17 = 17,
         CMD18 = 18,

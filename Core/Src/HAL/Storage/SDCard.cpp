@@ -30,8 +30,17 @@ SDCard::~SDCard()
 {
 }
 
+uint8_t buffer_write[512];
+uint8_t attempts = 1;
+uint8_t current_cycle = 0;
 void SDCard::Task(void *params)
-{
+{   
+    memset(buffer_write, 0xFF, sizeof(buffer_write));
+    for(int i = 0; i<50; i++)
+    {
+        buffer_write[i] = i;
+    }
+
     while(1)
     {
         if( SdCurrentVersion == SDCardVersion::SDInvalid )
@@ -43,13 +52,21 @@ void SDCard::Task(void *params)
         {   
             uint8_t buffer_read[kMaxBlockLen] = {0};
 
-            debug_controler_->PrintDebug(this, "Testing single read\n", true);
+            debug_controler_->PrintDebug(this, "Testing multiple blocks cycles\n", true);
 
-            ReadData( 0x00, buffer_read, sizeof(buffer_read) );
-            ReadData( 0x01, buffer_read, sizeof(buffer_read) );
-            ReadData( 0x02, buffer_read, sizeof(buffer_read) );
-            ReadData( 0x03, buffer_read, sizeof(buffer_read) );
-
+            if(current_cycle < attempts)
+            {
+                debug_controler_->PrintDebug(this, "New cycle attempt\n", true);
+                {
+                    WriteData( 0, buffer_write, sizeof(buffer_write) );
+                    ReadData( 0, buffer_read, sizeof(buffer_read) );
+                }
+                current_cycle++;
+            }
+            else
+            {
+                debug_controler_->PrintDebug(this, "Number of cycles finished\n", true);
+            }
         }
 
         TaskDelay(100);
@@ -65,7 +82,12 @@ uint8_t SDCard::GetCmdResponseSizeBytes( SDCommand cmd )
         response_size_bytes = 5;
     }
 
-    if( cmd == SDCommand::CMD12 )
+    else if( cmd == SDCommand::CMD13 )
+    {
+        response_size_bytes = 2;
+    }
+
+    else if( cmd == SDCommand::CMD12 )
     {
         response_size_bytes = kR1BResponse;
     }
@@ -333,9 +355,10 @@ uint16_t SDCard::ReadSingleBlock( uint32_t address, uint8_t *buffer_read, uint16
         spi_communication_->SetCSPin(1);
 
         do
-        {   
+        {
             if( index >= sizeof(bulk_read) )
             {
+                parse_state = ErrorState;
                 break;
             }
 
@@ -398,7 +421,8 @@ uint16_t SDCard::ReadSingleBlock( uint32_t address, uint8_t *buffer_read, uint16
                     debug_controler_->PrintError(this, "Failed on block crc calculation\n", true);
                     break;
                 }
-    
+
+                debug_controler_->PrintDebug(this, "Data read successfully\n", true);
                 memcpy( buffer_read, &bulk_read[index], block_len_ );
                 size_read = block_len_;
             }
@@ -416,66 +440,116 @@ uint16_t SDCard::ReadMultipleBlocks( uint32_t address, uint8_t *buffer_read, uin
 
 uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size )
 {
-    uint8_t data_block[1 + kMaxBlockLen + 2] = {0};
-    uint8_t data_received[sizeof(data_block)] = {0};
-    uint8_t cmd_response = 0;
     uint16_t size_written = 0;
-    uint16_t computed_crc = 0;
-    uint16_t crc_position = block_len_ + 1;
+    uint16_t cmd_response = 0;
+    uint8_t data_block[ 1 + kMaxBlockLen + 2 ] = {0x0};
+    uint8_t sd_response[ kNumberClocksTimeout ] = {0};
+    uint16_t index = 0;
+
+    data_block[0] = kStartBlockToken;
+    memcpy( &data_block[1], buffer_write, block_len_ );
+    data_block[block_len_ + 1] = 0x01;
+    data_block[block_len_ + 2] = 0x02;
 
     do
     {
-        if( buffer_size < block_len_ )
+        if( buffer_write == nullptr || buffer_size > kMaxBlockLen )
         {
             break;
         }
 
-        if( !SendCommand( SDCommand::CMD24, address, &cmd_response, sizeof(cmd_response), false ) )
-        {
+        if( !SendCommand( SDCommand::CMD24, address, (uint8_t*)&cmd_response, 1, false) )
+        {   
+            debug_controler_->PrintError(this, "Failed to send CMD24\n", true);
             break;
         }
 
-        if( cmd_response >= IdleState )
-        {
+        if( cmd_response != 0x0 )
+        {   
+            debug_controler_->PrintError(this, "CMD response != 0x00\n", true);
             break;
         }
 
-        data_block[0] = kStartBlockToken;
-        memcpy( &data_block[1], buffer_write, block_len_);
-
-        computed_crc = CRC::CRC16( buffer_write, block_len_ );
-        data_block[crc_position] = (computed_crc >> 8);
-        data_block[crc_position + 1] = computed_crc & 0xFF;
-
-        if( !spi_communication_->WriteReadData( data_block, data_received, sizeof(data_block) ) )
-        {
+        spi_communication_->SetCSPin(0);
+        if( !spi_communication_->WriteData( data_block, sizeof(data_block) ) )
+        {   
+            debug_controler_->PrintError(this, "Failed to write data_block\n", true);
             break;
         }
 
-        if( (data_received[0] & 0xE) != 0x02 )
+        memset(data_block, 0xFF, sizeof(data_block));
+        if( !spi_communication_->WriteReadData( data_block, sd_response, sizeof(sd_response) ) )
         {
+            debug_controler_->PrintError(this, "Failed to read data_response\n", true);
             break;
         }
 
-        uint8_t empty_io = 0xF;
-        uint8_t busy_flag = 0;
-        do
+        while( index < sizeof(sd_response) &&
+               sd_response[index] == 0xFF)
         {
-            if( !spi_communication_->WriteReadData( &empty_io, &busy_flag, sizeof(busy_flag) ) )
-            {
+            index++;
+        }
+
+        if( index == sizeof(sd_response) )
+        {   
+            debug_controler_->PrintError(this, "Failed to find data resp token\n", true);
+            break;
+        }
+
+        uint8_t data_response_token = (sd_response[index] & 0xE) >> 1;
+        if( data_response_token != kDataResponseTokenAccepted )
+        {   
+            debug_controler_->PrintError(this, "Data resp token is not accepted\n", true);
+            break;
+        }
+
+        index++;
+        while( index < sizeof(sd_response) &&
+               sd_response[index] == 0x00 )
+        {
+            index++;
+        }
+
+        if( index == sizeof(sd_response) )
+        {   
+            debug_controler_->PrintError(this, "Failed to find end of busy TAGAIN\n", true);
+            index = 0;
+            if( !spi_communication_->WriteReadData( data_block, sd_response, sizeof(sd_response) ) )
+            {   
+                debug_controler_->PrintError(this, "Failed to send cmd to get DOUT state\n", true);
                 break;
             }
 
-            TaskDelay(1);
-        } while (busy_flag);
+            while( index < sizeof(sd_response) &&
+                   sd_response[index] == 0x00 )
+            {
+                index++;
+            }
 
-        if(busy_flag != 0)
-        {
-            size_written = block_len_;
+            if( index == sizeof(sd_response) )
+            {   
+                debug_controler_->PrintError(this, "Data line still busy\n", true);
+                break;
+            }
         }
 
+        if( !SendCommand( SDCommand::CMD13, 0x00, (uint8_t*)&cmd_response, 2, false ) )
+        {   
+            debug_controler_->PrintError(this, "Failed to send CMD13\n", true);
+            break;
+        }
+
+        if( cmd_response != 0x00 )
+        {   
+            debug_controler_->PrintError(this, "Data was not written\n", true);
+            break;
+        }
+
+        debug_controler_->PrintDebug(this, "Data written successfully\n", true);
+        size_written = block_len_;
     } while( 0 );
 
+    spi_communication_->SetCSPin(1);
     return size_written;
 }
 
