@@ -144,8 +144,8 @@ bool SDCard::WaitForBusyLine( uint8_t *r1response, uint16_t attempts )
     for(int i = 0; i < attempts; i++)
     {   
         debug_controler_->PrintDebug(this, "New attemp to erase\n", true);
-        status = spi_communication_->WriteReadData( dummy_clock, buffer_read, sizeof(buffer_read) );
-        if(status == false)
+        status = false;
+        if( !spi_communication_->WriteReadData( dummy_clock, buffer_read, sizeof(buffer_read) ) )
         {
             continue;
         }
