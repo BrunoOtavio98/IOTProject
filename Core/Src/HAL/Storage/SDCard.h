@@ -50,7 +50,6 @@ protected:
 
     const uint32_t CCS_MASK = 0x01 << 30;
     static constexpr int kMaxReponseSizeBytes = 5;
-    static constexpr uint8_t kR1BResponse = 0xFE;
     static constexpr uint16_t kMaxBlockLen = 512;
     static constexpr uint8_t kNumberClocksTimeout = 60;
 
@@ -76,6 +75,9 @@ protected:
         ACMD23 = 23,
         CMD24 = 24,
         CMD25 = 25,
+        CMD32 = 32,
+        CMD33 = 33,
+        CMD38 = 38,
         CMD55 = 55,
         CMD58 = 58
     };
@@ -103,6 +105,7 @@ protected:
     void Task(void *params) override;
     uint16_t ReadData( uint32_t address, uint8_t *buffer_read, uint16_t buffer_size ) override;
     uint16_t WriteData( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size ) override;
+    bool EraseRange( uint32_t start_address, uint32_t end_address ) override;
 
     uint16_t ReadSingleBlock( uint32_t address, uint8_t *buffer_read, uint16_t buffer_size );
     uint16_t ReadMultipleBlocks( uint32_t address, uint8_t *buffer_read, uint16_t buffer_size );
@@ -116,6 +119,8 @@ protected:
     bool isAnApplicationCommand( SDCommand cmd );
     bool ErrorTokenReturned( uint8_t token );
     bool BuildSDCommand( SDCommand cmd, uint32_t argument, uint8_t *buffer, uint16_t buffer_size, bool crc_enabled );
+    bool WaitForBusyLine( uint8_t *r1response, uint16_t attempts );
+    bool IsR1BResponse( SDCommand cmd );
 
     constexpr bool ResposeFlagSet( uint8_t response, SDResponseMask mask )
     {

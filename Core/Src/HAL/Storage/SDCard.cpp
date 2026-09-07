@@ -57,9 +57,11 @@ void SDCard::Task(void *params)
             if(current_cycle < attempts)
             {
                 debug_controler_->PrintDebug(this, "New cycle attempt\n", true);
+                for(int i = 0; i<25; i++)
                 {
-                    WriteData( 0, buffer_write, sizeof(buffer_write) );
-                    ReadData( 0, buffer_read, sizeof(buffer_read) );
+                    //WriteData( i, buffer_write, sizeof(buffer_write) );
+                    ReadData( i, buffer_read, sizeof(buffer_read) );
+                    //EraseRange(0, 24);
                 }
                 current_cycle++;
             }
@@ -71,6 +73,16 @@ void SDCard::Task(void *params)
 
         TaskDelay(100);
     }
+}
+
+bool SDCard::IsR1BResponse( SDCommand cmd )
+{
+    if( cmd == SDCommand::CMD12 || cmd == SDCommand::CMD38 )
+    {
+        return true;
+    }
+
+    return false;
 }
 
 uint8_t SDCard::GetCmdResponseSizeBytes( SDCommand cmd )
@@ -85,11 +97,6 @@ uint8_t SDCard::GetCmdResponseSizeBytes( SDCommand cmd )
     else if( cmd == SDCommand::CMD13 )
     {
         response_size_bytes = 2;
-    }
-
-    else if( cmd == SDCommand::CMD12 )
-    {
-        response_size_bytes = kR1BResponse;
     }
 
     return response_size_bytes;
@@ -119,6 +126,71 @@ bool SDCard::ErrorTokenReturned( uint8_t token )
     }
 
     return true;
+}
+
+bool SDCard::WaitForBusyLine( uint8_t *r1response, uint16_t attempts )
+{   
+    bool status = false; 
+    uint8_t buffer_read[ kNumberClocksTimeout ] = {0};
+    uint8_t dummy_clock[ kNumberClocksTimeout ];
+
+    memset(dummy_clock, 0xFF, sizeof(dummy_clock));
+
+    if( r1response == nullptr )
+    {
+        return false;
+    }
+
+    for(int i = 0; i < attempts; i++)
+    {   
+        debug_controler_->PrintDebug(this, "New attemp to erase\n", true);
+        status = spi_communication_->WriteReadData( dummy_clock, buffer_read, sizeof(buffer_read) );
+        if(status == false)
+        {
+            continue;
+        }
+
+        uint8_t index = 0;
+        while( index < sizeof(buffer_read) &&
+               buffer_read[index] == 0xFF )
+        {
+            index++;
+        }
+
+        if( index == sizeof(buffer_read) )
+        {   
+            debug_controler_->PrintError(this, "Failed to find cmd resp\n", true);
+            continue;
+        }
+
+        if( buffer_read[index] != 0x00 )
+        {   
+            debug_controler_->PrintError(this, "Cmd resp error abort\n", true);
+            i = attempts;
+            continue;
+        }
+
+        *r1response = buffer_read[index];
+        index++;
+
+        while( index < sizeof(buffer_read) && 
+               buffer_read[index] == 0x00 )
+        {
+            index++;
+        }
+
+        if( index == sizeof(buffer_read) )
+        {   
+            debug_controler_->PrintError(this, "failed to find non-busy flag\n", true);
+            continue;
+        }
+
+        debug_controler_->PrintDebug(this, "Success on erase blocks\n", true);
+        status = true;
+        i = attempts;
+    }
+
+    return status;
 }
 
 bool SDCard::BuildSDCommand( SDCommand cmd, uint32_t argument, uint8_t *buffer, uint16_t buffer_size, bool crc_enabled )
@@ -541,6 +613,49 @@ uint16_t SDCard::WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, u
     return 0;
 }
 
+bool SDCard::EraseRange( uint32_t start_address, uint32_t end_address ) 
+{
+    uint8_t cmd_response = 0x00;
+
+    if( end_address < start_address )
+    {
+        return false;
+    }
+
+    if( !SendCommand( SDCommand::CMD32, start_address, &cmd_response, sizeof(cmd_response), false ) )
+    {
+        return false;
+    }
+
+    if( cmd_response != 0x00 )
+    {
+        return false;
+    }
+
+    if( !SendCommand( SDCommand::CMD33, end_address, &cmd_response, sizeof(cmd_response), false ) )
+    {
+        return false;
+    }
+
+    if( cmd_response != 0x00 )
+    {
+        return false;
+    }
+
+    uint8_t dummy = 0xFF;
+    if( !SendCommand( SDCommand::CMD38, dummy, &cmd_response, sizeof(cmd_response), false ) )
+    {
+        return false;
+    }
+
+    if( cmd_response != 0x00 )
+    {
+        return false;
+    }
+
+    return true;
+}
+
 uint16_t SDCard::ReadData( uint32_t address, uint8_t *buffer_read, uint16_t buffer_size )
 {
     uint16_t num_bytes_read = 0;
@@ -630,9 +745,14 @@ bool SDCard::SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, u
             break;
         }
 
-        if( expected_cmd_rsp_size == kR1BResponse )
+        if( IsR1BResponse( cmd ) )
         {
-            // TODO: implement R1b response
+            status = WaitForBusyLine( response, 5 );
+            if( status == false)
+            {
+                debug_controler_->PrintError(this, "Failed to retrieve R1B response\n", true);
+            }
+
             break;
         }
 

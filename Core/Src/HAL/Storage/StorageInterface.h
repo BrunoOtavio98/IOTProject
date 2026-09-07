@@ -53,6 +53,11 @@ public:
         return 0;
     }
 
+    virtual bool EraseRange( uint32_t start_address, uint32_t end_address )
+    {
+        return true;
+    }
+
 protected:
     std::shared_ptr<HAL::Devices::Communication::Interfaces::SPIInterface> spi_communication_;
 
