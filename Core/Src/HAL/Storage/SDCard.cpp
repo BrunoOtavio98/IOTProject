@@ -511,26 +511,9 @@ uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint
         }
 
         if( index == sizeof(sd_response) )
-        {   
-            debug_controler_->PrintError(this, "Failed to find end of busy TAGAIN\n", true);
-            index = 0;
-            if( !spi_communication_->WriteReadData( data_block, sd_response, sizeof(sd_response) ) )
-            {   
-                debug_controler_->PrintError(this, "Failed to send cmd to get DOUT state\n", true);
-                break;
-            }
-
-            while( index < sizeof(sd_response) &&
-                   sd_response[index] == 0x00 )
-            {
-                index++;
-            }
-
-            if( index == sizeof(sd_response) )
-            {   
-                debug_controler_->PrintError(this, "Data line still busy\n", true);
-                break;
-            }
+        {
+            debug_controler_->PrintDebug(this, "Failed to find non-busy byte\n", true);
+            break;
         }
 
         if( !SendCommand( SDCommand::CMD13, 0x00, (uint8_t*)&cmd_response, 2, false ) )
