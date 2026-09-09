@@ -24,6 +24,7 @@ SDCard::SDCard( const std::shared_ptr<HAL::Devices::Communication::Interfaces::S
                 block_len_(kMaxBlockLen)
 {
     debug_controler_->RegisterModuleToDebug(this);
+    memset(blocks_buffer_, 0, sizeof(blocks_buffer_));
 }
 
 SDCard::~SDCard()
@@ -33,6 +34,7 @@ SDCard::~SDCard()
 uint8_t buffer_write[512];
 uint8_t attempts = 1;
 uint8_t current_cycle = 0;
+uint8_t buffer_read[512 * 6] = {0};
 void SDCard::Task(void *params)
 {   
     memset(buffer_write, 0xFF, sizeof(buffer_write));
@@ -50,17 +52,16 @@ void SDCard::Task(void *params)
         }
         else
         {   
-            uint8_t buffer_read[kMaxBlockLen] = {0};
 
             debug_controler_->PrintDebug(this, "Testing multiple blocks cycles\n", true);
 
             if(current_cycle < attempts)
             {
                 debug_controler_->PrintDebug(this, "New cycle attempt\n", true);
-                for(int i = 0; i<25; i++)
+                //for(int i = 0; i<25; i++)
                 {
                     //WriteData( i, buffer_write, sizeof(buffer_write) );
-                    ReadData( i, buffer_read, sizeof(buffer_read) );
+                    ReadData( 0, buffer_read, sizeof(buffer_read) );
                     //EraseRange(0, 24);
                 }
                 current_cycle++;
@@ -116,25 +117,10 @@ bool SDCard::GetStartValidByteFromBuffer( uint8_t *index_out, uint8_t *buffer, u
     return false;
 }
 
-bool SDCard::ErrorTokenReturned( uint8_t token )
-{    
-    if( token == kStartBlockToken || 
-        token == kStartMultiBlockWriteToken || 
-        token == kStopMultiBlockWriteToken )
-    {
-        return false;
-    }
-
-    return true;
-}
-
 bool SDCard::WaitForBusyLine( uint8_t *r1response, uint16_t attempts )
-{   
+{
     bool status = false; 
     uint8_t buffer_read[ kNumberClocksTimeout ] = {0};
-    uint8_t dummy_clock[ kNumberClocksTimeout ];
-
-    memset(dummy_clock, 0xFF, sizeof(dummy_clock));
 
     if( r1response == nullptr )
     {
@@ -142,17 +128,16 @@ bool SDCard::WaitForBusyLine( uint8_t *r1response, uint16_t attempts )
     }
 
     for(int i = 0; i < attempts; i++)
-    {   
-        debug_controler_->PrintDebug(this, "New attemp to erase\n", true);
+    {
         status = false;
-        if( !spi_communication_->WriteReadData( dummy_clock, buffer_read, sizeof(buffer_read) ) )
+        if( !spi_communication_->ReadData( buffer_read, sizeof(buffer_read) ) )
         {
             continue;
         }
 
         uint8_t index = 0;
         while( index < sizeof(buffer_read) &&
-               buffer_read[index] == 0xFF )
+               buffer_read[index] > 0 )
         {
             index++;
         }
@@ -185,7 +170,6 @@ bool SDCard::WaitForBusyLine( uint8_t *r1response, uint16_t attempts )
             continue;
         }
 
-        debug_controler_->PrintDebug(this, "Success on erase blocks\n", true);
         status = true;
         i = attempts;
     }
@@ -216,6 +200,79 @@ bool SDCard::BuildSDCommand( SDCommand cmd, uint32_t argument, uint8_t *buffer, 
     }
     memcpy( &buffer[5], &crc, sizeof(crc));
     return true;
+}
+
+bool SDCard::ParseSingleBlock(  SDCommand cmd_sent, uint8_t *block_buffer, uint16_t size_block_buffer, uint8_t *data_read, uint16_t *last_block_byte )
+{
+    uint16_t index = 0;
+    uint8_t empty_io = 0xFF;
+    uint16_t crc_received = 0;
+    uint16_t crc_calculated = 0;
+
+    if( block_buffer == nullptr )
+    {
+        return false;
+    }
+
+    if( last_block_byte != nullptr )
+    {
+        index = *last_block_byte;
+    }
+
+    if( cmd_sent == SDCommand::CMD17)
+    {
+
+        while( index < size_block_buffer &&
+                block_buffer[index] == empty_io )
+        {
+            index++;
+        }
+
+        if( index >= size_block_buffer || block_buffer[index] != 0x00 )
+        {
+            return false;
+        }
+
+        index++;
+    }
+
+    while( index < size_block_buffer &&
+            block_buffer[index] == empty_io )
+    {
+        index++;
+    }
+
+    if( index >= size_block_buffer || block_buffer[index] != kStartBlockToken )
+    {   
+        return false;
+    }
+
+    index++;
+    if( index + block_len_ + 2 <= size_block_buffer )
+    {
+        uint16_t crc_pos = index + block_len_;
+        crc_received = ( block_buffer[crc_pos] << 8 ) | block_buffer[crc_pos + 1];
+        crc_calculated = CRC::CRC16( &block_buffer[index], block_len_ );
+
+        if( last_block_byte != nullptr )
+        {
+            *last_block_byte = crc_pos + 1;
+        }
+
+        if( crc_received != crc_calculated )
+        {   
+            debug_controler_->PrintError(this, "Failed on block crc calculation\n", true);
+            return false;
+        }
+        else
+        {
+            debug_controler_->PrintDebug(this, "Data read successfully\n", true);
+            memcpy( data_read, &block_buffer[index], block_len_ );
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool SDCard::InitStorage() 
@@ -384,24 +441,11 @@ bool SDCard::InitStorage()
 
 uint16_t SDCard::ReadSingleBlock( uint32_t address, uint8_t *buffer_read, uint16_t buffer_size )
 {
-    enum BlockReadState
-    {
-        CmdResp,
-        BlockToken,
-        DataBlock,
-        ErrorState
-    };
-    
     // 1 CMD17 resp, 1 Data/Error token, kMaxBlocklen for block data,
     // 2 bytes for CRC and kNumberClocksTimout to account for SD processing time
     uint8_t bulk_read[ 1 + 1 + kMaxBlockLen + 2 + kNumberClocksTimeout] = {0};
     uint8_t sd_command[sizeof(bulk_read)] = {0};
-    BlockReadState parse_state = CmdResp;
-    uint16_t index = 0;
-    uint8_t empty_io = 0xFF;
     uint16_t size_read = 0;
-    uint16_t crc_received = 0;
-    uint16_t crc_calculated = 0;
 
     do
     {   
@@ -413,93 +457,25 @@ uint16_t SDCard::ReadSingleBlock( uint32_t address, uint8_t *buffer_read, uint16
         memset(sd_command, 0xFF, sizeof(sd_command));
 
         if( !BuildSDCommand( SDCommand::CMD17, address, sd_command, 6, false ) )
-        {   
+        {
             debug_controler_->PrintError(this, "Failed to build CMD17\n", true);
             break;
         }
 
         spi_communication_->SetCSPin(0);
         if( !spi_communication_->WriteReadData( sd_command, bulk_read, sizeof(bulk_read) ) )
-        {   
+        {
             debug_controler_->PrintError(this, "Failed read single block data\n", true);
             break;
         }
         spi_communication_->SetCSPin(1);
 
-        do
+        if( !ParseSingleBlock( SDCommand::CMD17, bulk_read, sizeof(bulk_read), buffer_read, nullptr ) )
         {
-            if( index >= sizeof(bulk_read) )
-            {
-                parse_state = ErrorState;
-                break;
-            }
-
-            switch (parse_state)
-            {
-                case CmdResp:
-                    if( bulk_read[index] == empty_io )
-                    {
-                        index++;
-                        continue;
-                    }
-                    else if( bulk_read[index] == 0x00 )
-                    {
-                        index++;
-                        parse_state = BlockToken;
-                        continue;
-                    }
-                    else
-                    {
-                        parse_state = ErrorState;
-                        debug_controler_->PrintError(this, "Failed when searching for CMD17 resp\n", true);
-                        break;
-                    }
-
-                    break;
-                case BlockToken:
-
-                    if( bulk_read[index] == empty_io )
-                    {
-                        index++;
-                        continue;
-                    }
-                    else if( bulk_read[index] == kStartBlockToken )
-                    {
-                        index++;
-                        parse_state = DataBlock;
-                        continue;
-                    }
-
-                    parse_state = ErrorState;
-                    debug_controler_->PrintError(this, "Failed when searching for CMD17 Data/Error token\n", true);
-                    break;
-                default:
-                break;
-            }
-
-        } while( parse_state != DataBlock && 
-                 parse_state != ErrorState );
-
-        if( parse_state == DataBlock )
-        {
-            if( index + block_len_ + 2 <= sizeof(bulk_read) )
-            {
-                uint16_t crc_pos = index + block_len_;
-                crc_received = ( bulk_read[crc_pos] << 8 ) | bulk_read[crc_pos + 1];
-                crc_calculated = CRC::CRC16( &bulk_read[index], block_len_ );
-
-                if( crc_received != crc_calculated )
-                {
-                    debug_controler_->PrintError(this, "Failed on block crc calculation\n", true);
-                    break;
-                }
-
-                debug_controler_->PrintDebug(this, "Data read successfully\n", true);
-                memcpy( buffer_read, &bulk_read[index], block_len_ );
-                size_read = block_len_;
-            }
+            break;
         }
 
+        size_read = block_len_;
     } while(0);
 
     return size_read;
@@ -507,7 +483,59 @@ uint16_t SDCard::ReadSingleBlock( uint32_t address, uint8_t *buffer_read, uint16
 
 uint16_t SDCard::ReadMultipleBlocks( uint32_t address, uint8_t *buffer_read, uint16_t buffer_size )
 {
-    return 0;
+    uint8_t cmd_response = 0;
+    uint16_t num_bytes_to_read = (buffer_size / block_len_) * block_len_ + kNumberClocksTimeout;
+    uint16_t last_pckg_byte = 0;
+
+    if( buffer_read == nullptr || buffer_size == 0 || num_bytes_to_read > sizeof(blocks_buffer_) )
+    {
+        return 0;
+    }
+
+    if( !SendCommand( SDCommand::CMD18, address, &cmd_response, sizeof(cmd_response), false ) )
+    {   
+        debug_controler_->PrintError(this, "Failed to send CMD18\n", true);
+        return 0;
+    }
+
+    if( cmd_response != 0 )
+    {   
+        debug_controler_->PrintError(this, "CMD response != 0\n", true);
+        return 0;
+    }
+
+    spi_communication_->SetCSPin(0);
+
+    if( !spi_communication_->ReadData( blocks_buffer_, num_bytes_to_read ) )
+    {
+        return 0;
+    }
+    spi_communication_->SetCSPin(1);
+
+    if( !SendCommand( SDCommand::CMD12, 0, &cmd_response, sizeof(cmd_response), false) )
+    {
+        return 0;
+    }
+
+    if( cmd_response != 0 )
+    {
+        return 0;
+    }
+
+    uint16_t index = 0;
+    while( last_pckg_byte < num_bytes_to_read )
+    {
+        if( !ParseSingleBlock( SDCommand::CMD18, blocks_buffer_, sizeof(blocks_buffer_) - last_pckg_byte, &buffer_read[index * block_len_], &last_pckg_byte ) )
+        {
+            break;
+        }
+
+        last_pckg_byte++;
+        index++;
+    }
+
+    memset(blocks_buffer_, 0, sizeof(blocks_buffer_));
+    return (index + 1) * block_len_;
 }
 
 uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size )
@@ -669,7 +697,7 @@ uint16_t SDCard::ReadData( uint32_t address, uint8_t *buffer_read, uint16_t buff
         {
            num_bytes_read = ReadSingleBlock( address, buffer_read, buffer_size );
         }
-        else
+        else if( buffer_size > block_len_ )
         {
             num_bytes_read = ReadMultipleBlocks( address, buffer_read, buffer_size );
         }
@@ -693,7 +721,7 @@ uint16_t SDCard::WriteData( uint32_t address, uint8_t *buffer_write, uint16_t bu
         {
            num_bytes_written = WriteSingleBlock( address, buffer_write, buffer_size );
         }
-        else
+        else if( buffer_size > block_len_ )
         {
             num_bytes_written = WriteMultipleBlocks( address, buffer_write, buffer_size );
         }

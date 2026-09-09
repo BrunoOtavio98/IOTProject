@@ -52,6 +52,7 @@ protected:
     static constexpr int kMaxReponseSizeBytes = 5;
     static constexpr uint16_t kMaxBlockLen = 512;
     static constexpr uint8_t kNumberClocksTimeout = 60;
+    static constexpr uint8_t kMaxNumberBlocksToRead = 10;
 
     static constexpr uint8_t kStartBlockToken = 0xFE;
     static constexpr uint8_t kStartMultiBlockWriteToken = 0xFC;
@@ -113,11 +114,11 @@ protected:
     uint16_t WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size );
     uint16_t WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size );
 
+    bool ParseSingleBlock( SDCommand cmd_sent, uint8_t *block_buffer, uint16_t size_block_buffer, uint8_t *data_read, uint16_t *last_block_byte );
     bool SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, uint16_t response_buffer_size, bool crc_enabled );
     uint8_t GetCmdResponseSizeBytes( SDCommand cmd );
     bool GetStartValidByteFromBuffer( uint8_t *index_out, uint8_t *buffer, uint16_t buffer_size );
     bool isAnApplicationCommand( SDCommand cmd );
-    bool ErrorTokenReturned( uint8_t token );
     bool BuildSDCommand( SDCommand cmd, uint32_t argument, uint8_t *buffer, uint16_t buffer_size, bool crc_enabled );
     bool WaitForBusyLine( uint8_t *r1response, uint16_t attempts );
     bool IsR1BResponse( SDCommand cmd );
@@ -131,6 +132,7 @@ protected:
     SDCardVersion SdCurrentVersion;
     std::shared_ptr<HAL::DebugController::DebugController> debug_controler_;
     uint16_t block_len_;
+    uint8_t blocks_buffer_[kMaxBlockLen * kMaxNumberBlocksToRead + 2 * kNumberClocksTimeout];
 };
 
 }
