@@ -87,7 +87,203 @@ bool STM32SPICommunication::WriteData( const uint8_t *data, uint16_t data_size )
 
 bool STM32SPICommunication::ReadData( uint8_t *read_buffer, uint16_t data_size )
 {
-    return ( HAL_SPI_Receive( spi_handle_.get(), read_buffer, data_size, kRxTimeoutMs ) == HAL_OK );
+    uint32_t tickstart;
+    HAL_SPI_StateTypeDef tmp_state;
+    uint32_t             tmp_mode;
+    SPI_HandleTypeDef    *hspi = spi_handle_.get();
+    uint16_t             initial_TxXferCount;
+    uint8_t              empty_io = 0xFF;
+    uint32_t             Timeout = kRxTimeoutMs;
+
+    uint32_t             txallowed = 1U;
+
+    assert_param(IS_SPI_DIRECTION_2LINES(hspi->Init.Direction));
+
+    tickstart = HAL_GetTick();
+
+    tmp_state           = hspi->State;
+    tmp_mode            = hspi->Init.Mode;
+    initial_TxXferCount = data_size;
+
+    if (!((tmp_state == HAL_SPI_STATE_READY) || \
+        ((tmp_mode == SPI_MODE_MASTER) && (hspi->Init.Direction == SPI_DIRECTION_2LINES) &&
+         (tmp_state == HAL_SPI_STATE_BUSY_RX))))
+    {
+        return false;
+    }
+
+    if ( (read_buffer == NULL) || (data_size == 0U))
+    {
+        return false;
+    }
+
+    __HAL_LOCK(hspi);
+
+    hspi->ErrorCode   = HAL_SPI_ERROR_NONE;
+    hspi->pRxBuffPtr  = (uint8_t *)read_buffer;
+    hspi->RxXferCount = data_size;
+    hspi->RxXferSize  = data_size;
+    hspi->pTxBuffPtr  = (const uint8_t *)&empty_io;
+    hspi->TxXferCount = data_size;
+    hspi->TxXferSize  = data_size;
+
+    hspi->RxISR       = NULL;
+    hspi->TxISR       = NULL;
+
+    if ((hspi->Instance->CR1 & SPI_CR1_SPE) != SPI_CR1_SPE)
+    {
+        /* Enable SPI peripheral */
+        __HAL_SPI_ENABLE(hspi);
+    }
+
+
+    if ((hspi->Init.Mode == SPI_MODE_SLAVE) || (initial_TxXferCount == 0x01U))
+    {
+      *((__IO uint8_t *)&hspi->Instance->DR) = *((const uint8_t *)hspi->pTxBuffPtr);
+      hspi->pTxBuffPtr += sizeof(uint8_t);
+      hspi->TxXferCount--;
+
+    }
+
+    while ((hspi->TxXferCount > 0U) || (hspi->RxXferCount > 0U))
+    {
+      /* Check TXE flag */
+      if ((__HAL_SPI_GET_FLAG(hspi, SPI_FLAG_TXE)) && (hspi->TxXferCount > 0U) && (txallowed == 1U))
+      {
+        *(__IO uint8_t *)&hspi->Instance->DR = *((const uint8_t *)hspi->pTxBuffPtr);
+        hspi->TxXferCount--;
+        /* Next Data is a reception (Rx). Tx not allowed */
+        txallowed = 0U;
+
+      }
+
+      /* Wait until RXNE flag is reset */
+      if ((__HAL_SPI_GET_FLAG(hspi, SPI_FLAG_RXNE)) && (hspi->RxXferCount > 0U))
+      {
+        (*(uint8_t *)hspi->pRxBuffPtr) = hspi->Instance->DR;
+        hspi->pRxBuffPtr++;
+        hspi->RxXferCount--;
+        /* Next Data is a Transmission (Tx). Tx is allowed */
+        txallowed = 1U;
+      }
+      if ((((HAL_GetTick() - tickstart) >=  Timeout) && ((Timeout != HAL_MAX_DELAY))) || (Timeout == 0U))
+      {
+        hspi->State = HAL_SPI_STATE_READY;
+        __HAL_UNLOCK(hspi);
+        return false;
+      }
+    }
+
+    /* Check the end of the transaction */
+    if (Clone_SPI_EndRxTransaction(hspi, Timeout, tickstart) != HAL_OK)
+    {
+        hspi->ErrorCode = HAL_SPI_ERROR_FLAG;
+        __HAL_UNLOCK(hspi);
+        return false;
+    }
+
+    /* Clear overrun flag in 2 Lines communication mode because received is not read */
+    if (hspi->Init.Direction == SPI_DIRECTION_2LINES)
+    {
+        __HAL_SPI_CLEAR_OVRFLAG(hspi);
+    }
+
+    hspi->State = HAL_SPI_STATE_READY;
+    /* Unlock the process */
+    __HAL_UNLOCK(hspi);
+
+    if (hspi->ErrorCode != HAL_SPI_ERROR_NONE)
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+
+}
+
+HAL_StatusTypeDef STM32SPICommunication::Clone_SPI_WaitFlagStateUntilTimeout( SPI_HandleTypeDef *hspi,
+                                                                              uint32_t flag,
+                                                                              FlagStatus state,
+                                                                              uint32_t timeout,
+                                                                              uint32_t tickstart )
+{
+    uint32_t count;
+    uint32_t remaining_timeout = timeout - (HAL_GetTick() - tickstart);
+    uint32_t wait_tickstart = HAL_GetTick();
+
+    count = remaining_timeout * ((SystemCoreClock * 32U) >> 20U);
+
+    while( (__HAL_SPI_GET_FLAG(hspi, flag) ? SET : RESET) != state )
+    {
+        if( timeout != HAL_MAX_DELAY )
+        {
+            if( ((HAL_GetTick() - wait_tickstart) >= remaining_timeout) ||
+                (remaining_timeout == 0U) )
+            {
+                __HAL_SPI_DISABLE_IT(hspi, SPI_IT_TXE | SPI_IT_RXNE | SPI_IT_ERR);
+
+                if( (hspi->Init.Mode == SPI_MODE_MASTER) &&
+                    ((hspi->Init.Direction == SPI_DIRECTION_1LINE) ||
+                     (hspi->Init.Direction == SPI_DIRECTION_2LINES_RXONLY)) )
+                {
+                    __HAL_SPI_DISABLE(hspi);
+                }
+
+                hspi->State = HAL_SPI_STATE_READY;
+                __HAL_UNLOCK(hspi);
+                return HAL_TIMEOUT;
+            }
+
+            if( count == 0U )
+            {
+                remaining_timeout = 0U;
+            }
+            else
+            {
+                count--;
+            }
+        }
+    }
+
+    return HAL_OK;
+}
+
+HAL_StatusTypeDef STM32SPICommunication::Clone_SPI_EndRxTransaction( SPI_HandleTypeDef *hspi,
+                                                                     uint32_t timeout,
+                                                                     uint32_t tickstart )
+{
+    if( (hspi->Init.Mode == SPI_MODE_MASTER) &&
+        ((hspi->Init.Direction == SPI_DIRECTION_1LINE) ||
+         (hspi->Init.Direction == SPI_DIRECTION_2LINES_RXONLY)) )
+    {
+        __HAL_SPI_DISABLE(hspi);
+    }
+
+    if( hspi->Init.Mode == SPI_MODE_MASTER )
+    {
+        if( hspi->Init.Direction != SPI_DIRECTION_2LINES_RXONLY )
+        {
+            if( Clone_SPI_WaitFlagStateUntilTimeout(hspi, SPI_FLAG_BSY, RESET, timeout, tickstart) != HAL_OK )
+            {
+                SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_FLAG);
+                return HAL_TIMEOUT;
+            }
+        }
+        else if( Clone_SPI_WaitFlagStateUntilTimeout(hspi, SPI_FLAG_RXNE, RESET, timeout, tickstart) != HAL_OK )
+        {
+            SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_FLAG);
+            return HAL_TIMEOUT;
+        }
+    }
+    else if( Clone_SPI_WaitFlagStateUntilTimeout(hspi, SPI_FLAG_RXNE, RESET, timeout, tickstart) != HAL_OK )
+    {
+        SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_FLAG);
+        return HAL_TIMEOUT;
+    }
+
+    return HAL_OK;
 }
 
 bool STM32SPICommunication::ReadDataIT( uint8_t *read_buffer, uint16_t data_size, std::function<void(void)> callback_read_finish )

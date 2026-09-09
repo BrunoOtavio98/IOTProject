@@ -43,6 +43,13 @@ private:
     void FromBaseSPIModeToHalPolarity( SPITimmingMode timming_mode );
     void PrescalerCalculation( SPIBaudRatePrescaler prescaler );
     void ConfigureCSPin();
+    HAL_StatusTypeDef Clone_SPI_EndRxTransaction( SPI_HandleTypeDef *hspi, uint32_t timeout, uint32_t tickstart );
+    HAL_StatusTypeDef Clone_SPI_WaitFlagStateUntilTimeout( SPI_HandleTypeDef *hspi,
+                                                          uint32_t flag,
+                                                          FlagStatus state,
+                                                          uint32_t timeout,
+                                                          uint32_t tickstart );
+
 };
 
 

@@ -549,8 +549,7 @@ uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint
             break;
         }
 
-        memset(data_block, 0xFF, sizeof(data_block));
-        if( !spi_communication_->WriteReadData( data_block, sd_response, sizeof(sd_response) ) )
+        if( !spi_communication_->ReadData( sd_response, sizeof(sd_response) ) )
         {
             debug_controler_->PrintError(this, "Failed to read data_response\n", true);
             break;
@@ -708,7 +707,6 @@ bool SDCard::SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, u
 {
     uint8_t sd_command[6] = {0};
     uint8_t data_read_back[16] = {0};
-    uint8_t empty_write[sizeof(data_read_back)];
     uint8_t expected_cmd_rsp_size = GetCmdResponseSizeBytes(cmd);
     bool status;
     uint8_t index = 0;
@@ -720,8 +718,6 @@ bool SDCard::SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, u
         debug_controler_->PrintError(this, "Error on input data\n", true);
         return false;
     }
-
-    memset(empty_write, 0xFF, sizeof(empty_write));
 
     do
     {   
@@ -757,7 +753,7 @@ bool SDCard::SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, u
         }
 
         // Try to read the data back, it could need until 8 bytes to SD card to respond
-        status = spi_communication_->WriteReadData( empty_write, data_read_back, sizeof(data_read_back) );
+        status = spi_communication_->ReadData( data_read_back, sizeof(data_read_back) );
         if( status == false )
         {
             debug_controler_->PrintError(this, "Failed to read data back\n", true);
