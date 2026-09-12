@@ -465,6 +465,7 @@ uint16_t SDCard::ReadSingleBlock( uint32_t address, uint8_t *buffer_read, uint16
         spi_communication_->SetCSPin(0);
         if( !spi_communication_->WriteReadData( sd_command, bulk_read, sizeof(bulk_read) ) )
         {
+            spi_communication_->SetCSPin(1);
             debug_controler_->PrintError(this, "Failed read single block data\n", true);
             break;
         }
@@ -508,6 +509,7 @@ uint16_t SDCard::ReadMultipleBlocks( uint32_t address, uint8_t *buffer_read, uin
 
     if( !spi_communication_->ReadData( blocks_buffer_, num_bytes_to_read ) )
     {
+        spi_communication_->SetCSPin(1);
         return 0;
     }
     spi_communication_->SetCSPin(1);
@@ -523,7 +525,8 @@ uint16_t SDCard::ReadMultipleBlocks( uint32_t address, uint8_t *buffer_read, uin
     }
 
     uint16_t index = 0;
-    while( last_pckg_byte < num_bytes_to_read )
+    uint16_t requested_blocks = buffer_size / block_len_;
+    while( index < requested_blocks )
     {
         if( !ParseSingleBlock( SDCommand::CMD18, blocks_buffer_, sizeof(blocks_buffer_) - last_pckg_byte, &buffer_read[index * block_len_], &last_pckg_byte ) )
         {
@@ -535,7 +538,7 @@ uint16_t SDCard::ReadMultipleBlocks( uint32_t address, uint8_t *buffer_read, uin
     }
 
     memset(blocks_buffer_, 0, sizeof(blocks_buffer_));
-    return (index + 1) * block_len_;
+    return index * block_len_;
 }
 
 uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size )
@@ -582,6 +585,8 @@ uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint
             debug_controler_->PrintError(this, "Failed to read data_response\n", true);
             break;
         }
+        spi_communication_->SetCSPin(1);
+
 
         while( index < sizeof(sd_response) &&
                sd_response[index] == 0xFF)
