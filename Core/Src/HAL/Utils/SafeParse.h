@@ -1,3 +1,6 @@
+#ifndef SAFE_PARSE_H
+#define SAFE_PARSE_H
+
 #include <string>
 
 namespace HAL
@@ -78,3 +81,5 @@ class SafeParse
 
 }
 }
+
+#endif // SAFE_PARSE_H
