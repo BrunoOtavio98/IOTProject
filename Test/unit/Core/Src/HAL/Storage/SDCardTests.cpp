@@ -617,6 +617,214 @@ TEST_F(SDCardTests, WriteDataSucceedsWhenSdCardAcceptsSingleBlockWrite)
     EXPECT_EQ(sd_card_.WriteData(address, payload.data(), payload.size()), 512u);
 }
 
+TEST_F(SDCardTests, WriteMultipleBlocksWritesAllCompleteBlocks)
+{
+    std::array<uint8_t, 3 * 512> payload = {};
+    size_t block_write_count = 0;
+    size_t response_read_count = 0;
+
+    for (size_t index = 0; index < payload.size(); ++index)
+    {
+        payload[index] = static_cast<uint8_t>(index & 0xFF);
+    }
+
+    EXPECT_CALL(*spi_comm_, SetCSPin(::testing::_)).WillRepeatedly(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u))
+        .WillOnce([&](const uint8_t *data, uint16_t) {
+            EXPECT_EQ(data[0], 0x59u);
+            EXPECT_EQ(data[4], 0x20u);
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), 16u))
+        .WillOnce([](uint8_t *data_read, uint16_t) {
+            std::fill(data_read, data_read + 16, 0xFF);
+            data_read[0] = 0x00;
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 515u))
+        .Times(3)
+        .WillRepeatedly([&](const uint8_t *data, uint16_t) {
+            EXPECT_EQ(data[0], 0xFCu);
+            EXPECT_EQ(std::memcmp(data + 1, payload.data() + block_write_count * 512, 512), 0);
+            EXPECT_EQ(data[513], 0x01u);
+            EXPECT_EQ(data[514], 0x02u);
+            block_write_count++;
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), 60u))
+        .Times(4)
+        .WillRepeatedly([&](uint8_t *data_read, uint16_t) {
+            std::fill(data_read, data_read + 60, 0xFF);
+            data_read[0] = response_read_count < 3 ? 0x05 : 0x00;
+            if (response_read_count == 3)
+            {
+                data_read[1] = 0xFF;
+            }
+            response_read_count++;
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 1u))
+        .WillOnce([](const uint8_t *data, uint16_t) {
+            EXPECT_EQ(data[0], 0xFDu);
+            return true;
+        });
+
+    EXPECT_EQ(sd_card_.WriteData(0x20, payload.data(), payload.size()), 1536u);
+    EXPECT_EQ(block_write_count, 3u);
+}
+
+TEST_F(SDCardTests, WriteMultipleBlocksPadsPartialFinalBlock)
+{
+    const size_t payload_size = 3 * 512 + 76;
+    std::array<uint8_t, payload_size> payload = {};
+    size_t block_write_count = 0;
+
+    for (size_t index = 0; index < payload.size(); ++index)
+    {
+        payload[index] = static_cast<uint8_t>((index + 3) & 0xFF);
+    }
+
+    EXPECT_CALL(*spi_comm_, SetCSPin(::testing::_)).WillRepeatedly(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), 16u))
+        .WillOnce([](uint8_t *data_read, uint16_t) {
+            std::fill(data_read, data_read + 16, 0xFF);
+            data_read[0] = 0x00;
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 515u))
+        .Times(4)
+        .WillRepeatedly([&](const uint8_t *data, uint16_t) {
+            const size_t offset = block_write_count * 512;
+            const size_t bytes_in_block = block_write_count < 3 ? 512 : 76;
+            EXPECT_EQ(data[0], 0xFCu);
+            EXPECT_EQ(std::memcmp(data + 1, payload.data() + offset, bytes_in_block), 0);
+            if (block_write_count == 3)
+            {
+                for (size_t index = bytes_in_block; index < 512; ++index)
+                {
+                    EXPECT_EQ(data[1 + index], 0x00u);
+                }
+            }
+            block_write_count++;
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), 60u))
+        .Times(5)
+        .WillRepeatedly([count = size_t{0}](uint8_t *data_read, uint16_t) mutable {
+            std::fill(data_read, data_read + 60, 0xFF);
+            data_read[0] = count < 4 ? 0x05 : 0x00;
+            if (count == 4)
+            {
+                data_read[1] = 0xFF;
+            }
+            count++;
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 1u)).WillOnce(::testing::Return(true));
+
+    EXPECT_EQ(sd_card_.WriteData(0x21, payload.data(), payload.size()), 2048u);
+    EXPECT_EQ(block_write_count, 4u);
+}
+
+TEST_F(SDCardTests, WriteMultipleBlocksReturnsZeroWhenBlockResponseIsRejected)
+{
+    std::array<uint8_t, 1024> payload = {};
+    size_t response_read_count = 0;
+
+    EXPECT_CALL(*spi_comm_, SetCSPin(::testing::_)).WillRepeatedly(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), 16u))
+        .WillOnce([](uint8_t *data_read, uint16_t) {
+            std::fill(data_read, data_read + 16, 0xFF);
+            data_read[0] = 0x00;
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 515u)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), 60u))
+        .Times(2)
+        .WillRepeatedly([&](uint8_t *data_read, uint16_t) {
+            std::fill(data_read, data_read + 60, 0xFF);
+            if (response_read_count++ == 0)
+            {
+                data_read[0] = 0x0B;
+            }
+            else
+            {
+                data_read[0] = 0x00;
+                data_read[1] = 0xFF;
+            }
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 1u)).WillOnce(::testing::Return(true));
+
+    EXPECT_EQ(sd_card_.WriteData(0x20, payload.data(), payload.size()), 0u);
+}
+
+TEST_F(SDCardTests, WriteMultipleBlocksStopsAfterBlockWriteFailure)
+{
+    std::array<uint8_t, 1024> payload = {};
+
+    EXPECT_CALL(*spi_comm_, SetCSPin(::testing::_)).WillRepeatedly(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), 16u))
+        .WillOnce([](uint8_t *data_read, uint16_t) {
+            std::fill(data_read, data_read + 16, 0xFF);
+            data_read[0] = 0x00;
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 515u)).WillOnce(::testing::Return(false));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 1u)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), 60u))
+        .WillOnce([](uint8_t *data_read, uint16_t) {
+            std::fill(data_read, data_read + 60, 0xFF);
+            data_read[0] = 0x00;
+            data_read[1] = 0xFF;
+            return true;
+        });
+
+    EXPECT_EQ(sd_card_.WriteData(0x20, payload.data(), payload.size()), 0u);
+}
+
+TEST_F(SDCardTests, WriteMultipleBlocksReturnsZeroWhenStopTokenWriteFails)
+{
+    std::array<uint8_t, 1024> payload = {};
+
+    EXPECT_CALL(*spi_comm_, SetCSPin(::testing::_)).WillRepeatedly(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), 16u))
+        .WillOnce([](uint8_t *data_read, uint16_t) {
+            std::fill(data_read, data_read + 16, 0xFF);
+            data_read[0] = 0x00;
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 515u))
+        .Times(2)
+        .WillRepeatedly(::testing::Return(true));
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), 60u))
+        .Times(2)
+        .WillRepeatedly([](uint8_t *data_read, uint16_t) {
+            std::fill(data_read, data_read + 60, 0xFF);
+            data_read[0] = 0x05;
+            return true;
+        });
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 1u)).WillOnce(::testing::Return(false));
+
+    EXPECT_EQ(sd_card_.WriteData(0x20, payload.data(), payload.size()), 0u);
+}
+
+TEST_F(SDCardTests, WriteMultipleBlocksReturnsZeroForInvalidInput)
+{
+    std::array<uint8_t, 512> payload = {};
+
+    EXPECT_CALL(*spi_comm_, SetCSPin(::testing::_)).Times(0);
+    EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), ::testing::_)).Times(0);
+    EXPECT_CALL(*spi_comm_, ReadData(::testing::An<uint8_t*>(), ::testing::_)).Times(0);
+
+    EXPECT_EQ(sd_card_.WriteData(0x20, nullptr, payload.size()), 0u);
+    EXPECT_EQ(sd_card_.WriteData(0x20, payload.data(), 0u), 0u);
+}
+
 TEST_F(SDCardTests, ReadMultipleBlocksReturnsCompleteBlocksForNonAlignedBufferSize)
 {
     const uint32_t address = 0x00000010;

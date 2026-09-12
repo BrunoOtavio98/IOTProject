@@ -660,12 +660,16 @@ uint16_t SDCard::WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, u
     uint8_t data_write[1 + kMaxBlockLen + 2] = {0};
     uint8_t data_read[kNumberClocksTimeout] = {0};
     uint8_t cmd_response = 0;
-    uint16_t size_ = buffer_size;
     uint16_t current_size = 0;
     uint16_t size_missing = buffer_size;
 
     uint16_t index = 0;
     uint16_t num_blocks = buffer_size / block_len_;
+
+    if( buffer_write == nullptr || buffer_size == 0 )
+    {
+        return false;
+    }
 
     if( buffer_size % block_len_ )
     {
@@ -725,7 +729,11 @@ uint16_t SDCard::WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, u
     }
 
     uint8_t stop_token = kStopMultiBlockWriteToken;
-    spi_communication_->WriteData( &stop_token, sizeof(stop_token));
+    if( !spi_communication_->WriteData( &stop_token, sizeof(stop_token)) )
+    {
+        spi_communication_->SetCSPin(1);
+        return 0;
+    }
 
     if( !spi_communication_->ReadData( data_read, sizeof(data_read) ) )
     {   
@@ -864,7 +872,7 @@ bool SDCard::SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, u
     }
 
     do
-    {   
+    {
         if( !BuildSDCommand( cmd, argument, sd_command, sizeof(sd_command), crc_enabled ) )
         {
             break;
@@ -880,7 +888,7 @@ bool SDCard::SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, u
         // Write the command
         status = spi_communication_->WriteData( sd_command, sizeof(sd_command) );
         if(status == false)
-        {   
+        {
             debug_controler_->PrintError(this, "Failed to write command\n", true);
             break;
         }
