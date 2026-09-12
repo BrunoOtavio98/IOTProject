@@ -115,6 +115,8 @@ protected:
     uint16_t WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size );
 
     bool ParseSingleBlock( SDCommand cmd_sent, uint8_t *block_buffer, uint16_t size_block_buffer, uint8_t *data_read, uint16_t *last_block_byte );
+    bool ParseBlockWriteResponse( uint8_t *block_buffer, uint16_t block_size );
+
     bool SendCommand( SDCommand cmd, uint32_t argument, uint8_t *response, uint16_t response_buffer_size, bool crc_enabled );
     uint8_t GetCmdResponseSizeBytes( SDCommand cmd );
     bool GetStartValidByteFromBuffer( uint8_t *index_out, uint8_t *buffer, uint16_t buffer_size );

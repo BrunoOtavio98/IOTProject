@@ -275,6 +275,50 @@ bool SDCard::ParseSingleBlock(  SDCommand cmd_sent, uint8_t *block_buffer, uint1
     return false;
 }
 
+bool SDCard::ParseBlockWriteResponse( uint8_t *block_buffer, uint16_t block_size )
+{   
+    uint16_t index = 0;
+
+    if( block_buffer == nullptr || block_size == 0 )
+    {
+        return false;
+    }
+
+    while( index < block_size &&
+            block_buffer[index] == 0xFF)
+    {
+        index++;
+    }
+
+    if( index == block_size )
+    {   
+        debug_controler_->PrintError(this, "Failed to find data resp token\n", true);
+        return false;
+    }
+
+    uint8_t data_response_token = (block_buffer[index] & 0xE) >> 1;
+    if( data_response_token != kDataResponseTokenAccepted )
+    {   
+        debug_controler_->PrintError(this, "Data resp token is not accepted\n", true);
+        return false;
+    }
+
+    index++;
+    while( index < block_size &&
+            block_buffer[index] == 0x00 )
+    {
+        index++;
+    }
+
+    if( index == block_size )
+    {   
+        debug_controler_->PrintError(this, "Failed to find non-busy flag\n", true);
+        return false;
+    }
+
+    return true;
+}
+
 bool SDCard::InitStorage() 
 {
     bool status = true;
@@ -547,7 +591,6 @@ uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint
     uint16_t cmd_response = 0;
     uint8_t data_block[ 1 + kMaxBlockLen + 2 ] = {0x0};
     uint8_t sd_response[ kNumberClocksTimeout ] = {0};
-    uint16_t index = 0;
 
     data_block[0] = kStartBlockToken;
     memcpy( &data_block[1], buffer_write, block_len_ );
@@ -582,41 +625,14 @@ uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint
 
         if( !spi_communication_->ReadData( sd_response, sizeof(sd_response) ) )
         {
+            spi_communication_->SetCSPin(1);
             debug_controler_->PrintError(this, "Failed to read data_response\n", true);
             break;
         }
         spi_communication_->SetCSPin(1);
 
-
-        while( index < sizeof(sd_response) &&
-               sd_response[index] == 0xFF)
+        if( !ParseBlockWriteResponse( sd_response, sizeof(sd_response) ) )
         {
-            index++;
-        }
-
-        if( index == sizeof(sd_response) )
-        {   
-            debug_controler_->PrintError(this, "Failed to find data resp token\n", true);
-            break;
-        }
-
-        uint8_t data_response_token = (sd_response[index] & 0xE) >> 1;
-        if( data_response_token != kDataResponseTokenAccepted )
-        {   
-            debug_controler_->PrintError(this, "Data resp token is not accepted\n", true);
-            break;
-        }
-
-        index++;
-        while( index < sizeof(sd_response) &&
-               sd_response[index] == 0x00 )
-        {
-            index++;
-        }
-
-        if( index == sizeof(sd_response) )
-        {
-            debug_controler_->PrintDebug(this, "Failed to find non-busy byte\n", true);
             break;
         }
 
@@ -636,13 +652,108 @@ uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint
         size_written = block_len_;
     } while( 0 );
 
-    spi_communication_->SetCSPin(1);
     return size_written;
 }
 
 uint16_t SDCard::WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size )
 {
-    return 0;
+    uint8_t data_write[1 + kMaxBlockLen + 2] = {0};
+    uint8_t data_read[kNumberClocksTimeout] = {0};
+    uint8_t cmd_response = 0;
+    uint16_t size_ = buffer_size;
+    uint16_t current_size = 0;
+    uint16_t size_missing = buffer_size;
+
+    uint16_t index = 0;
+    uint16_t num_blocks = buffer_size / block_len_;
+
+    if( buffer_size % block_len_ )
+    {
+        num_blocks++;
+    }
+
+    if( !SendCommand( SDCommand::CMD25, address, &cmd_response, sizeof(cmd_response), false) )
+    {   
+        debug_controler_->PrintError(this, "Failed to send CMD25\n", true);
+        return 0;
+    }
+
+    if( cmd_response != 0 )
+    {   
+        debug_controler_->PrintError(this, "CMD 25 resp != 0\n", true);
+        return 0;
+    }
+
+    data_write[0] = kStartMultiBlockWriteToken;
+    data_write[block_len_ + 1] = 0x1;
+    data_write[block_len_ + 2] = 0x2;
+
+    spi_communication_->SetCSPin(0);
+    while(index < num_blocks)
+    {   
+        if( size_missing > block_len_ )
+        {
+            current_size = block_len_;
+        }
+        else
+        {
+            current_size = size_missing;
+        }
+        size_missing -=current_size;
+
+        memcpy( &data_write[1], &buffer_write[index * block_len_], current_size );
+        if( !spi_communication_->WriteData( data_write, sizeof(data_write) ) )
+        {   
+            debug_controler_->PrintError(this, "Failed to write block\n", true);
+            break;
+        }
+
+        if( !spi_communication_->ReadData( data_read, sizeof(data_read) ) )
+        {   
+            debug_controler_->PrintError(this, "Failed to read SD response\n", true);
+            break;
+        }
+
+        if( !ParseBlockWriteResponse( data_read, sizeof(data_read) ) )
+        {   
+            debug_controler_->PrintError(this, "Failed to parse sd response\n", true);
+            break;
+        }
+
+        memset( &data_write[1], 0, block_len_ );
+        index++;
+    }
+
+    uint8_t stop_token = kStopMultiBlockWriteToken;
+    spi_communication_->WriteData( &stop_token, sizeof(stop_token));
+
+    if( !spi_communication_->ReadData( data_read, sizeof(data_read) ) )
+    {   
+        debug_controler_->PrintError(this, "Failed to read StopTrans resp\n", true);
+        spi_communication_->SetCSPin(1);
+        return 0;
+    }
+    spi_communication_->SetCSPin(1);
+
+
+    uint16_t i = 0;
+    while(i < sizeof(data_read))
+    {
+        if(data_read[i] > 0)
+        {
+            break;
+        }
+
+        i++;
+    }
+
+    if( i == sizeof(data_read) )
+    {       
+        debug_controler_->PrintError(this, "Failed to find non-busy flag\n", true);
+        return 0;
+    }
+
+    return index * block_len_;
 }
 
 bool SDCard::EraseRange( uint32_t start_address, uint32_t end_address ) 
