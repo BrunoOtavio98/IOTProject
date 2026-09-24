@@ -259,43 +259,48 @@ bool SDCard::ParseSingleBlock( uint8_t *block_buffer, uint16_t size_block_buffer
     return false;
 }
 
-bool SDCard::ParseBlockWriteResponse( uint8_t *block_buffer, uint16_t block_size )
-{   
-    uint16_t index = 0;
+bool SDCard::ReadSDWriteResponse()
+{
+    uint8_t byte_read = 0;
+    uint8_t curr_attempt = 0;
 
-    if( block_buffer == nullptr || block_size == 0 )
+    do
     {
+        if( !spi_communication_->ReadData( &byte_read, sizeof(byte_read) ) )
+        {
+            return false;
+        }
+
+        curr_attempt++;
+    } while( byte_read == 0xFF && curr_attempt < kMaxReadAttemps );
+
+    if( curr_attempt == kMaxReadAttemps || byte_read == 0xFF )
+    {
+        debug_controler_->PrintError(this, "Failed to find data resp_token\n", true);
         return false;
     }
 
-    while( index < block_size &&
-            block_buffer[index] == 0xFF)
+    byte_read = (byte_read & 0xE) >> 1;
+    if( byte_read != kDataResponseTokenAccepted )
     {
-        index++;
-    }
-
-    if( index == block_size )
-    {   
-        debug_controler_->PrintError(this, "Failed to find data resp token\n", true);
-        return false;
-    }
-
-    uint8_t data_response_token = (block_buffer[index] & 0xE) >> 1;
-    if( data_response_token != kDataResponseTokenAccepted )
-    {   
         debug_controler_->PrintError(this, "Data resp token is not accepted\n", true);
         return false;
     }
 
-    index++;
-    while( index < block_size &&
-            block_buffer[index] == 0x00 )
+    curr_attempt = 0;
+    byte_read = 0;
+    do
     {
-        index++;
-    }
+        if( !spi_communication_->ReadData( &byte_read, sizeof(byte_read) ) )
+        {
+            return false;
+        }
 
-    if( index == block_size )
-    {   
+        curr_attempt++;
+    } while( byte_read != 0xFF && curr_attempt < kMaxReadAttemps );
+
+    if( curr_attempt == kMaxReadAttemps || byte_read != 0xFF )
+    {
         debug_controler_->PrintError(this, "Failed to find non-busy flag\n", true);
         return false;
     }
@@ -619,7 +624,6 @@ uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint
     uint16_t size_written = 0;
     uint16_t cmd_response = 0;
     uint8_t data_block[ 1 + kMaxBlockLen + 2 ] = {0x0};
-    uint8_t sd_response[ kNumberClocksTimeout ] = {0};
 
     data_block[0] = kStartBlockToken;
     memcpy( &data_block[1], buffer_write, block_len_ );
@@ -652,15 +656,7 @@ uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint
             break;
         }
 
-        if( !spi_communication_->ReadData( sd_response, sizeof(sd_response) ) )
-        {
-            spi_communication_->SetCSPin(1);
-            debug_controler_->PrintError(this, "Failed to read data_response\n", true);
-            break;
-        }
-        spi_communication_->SetCSPin(1);
-
-        if( !ParseBlockWriteResponse( sd_response, sizeof(sd_response) ) )
+        if( !ReadSDWriteResponse() )
         {
             break;
         }
@@ -681,13 +677,13 @@ uint16_t SDCard::WriteSingleBlock( uint32_t address, uint8_t *buffer_write, uint
         size_written = block_len_;
     } while( 0 );
 
+    spi_communication_->SetCSPin(1);
     return size_written;
 }
 
 uint16_t SDCard::WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size )
 {
     uint8_t data_write[1 + kMaxBlockLen + 2] = {0};
-    uint8_t data_read[kNumberClocksTimeout] = {0};
     uint8_t cmd_response = 0;
     uint16_t index = 0;
     uint16_t num_blocks = buffer_size / block_len_;
@@ -728,15 +724,8 @@ uint16_t SDCard::WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, u
             break;
         }
 
-        if( !spi_communication_->ReadData( data_read, sizeof(data_read) ) )
-        {   
-            debug_controler_->PrintError(this, "Failed to read SD response\n", true);
-            break;
-        }
-
-        if( !ParseBlockWriteResponse( data_read, sizeof(data_read) ) )
-        {   
-            debug_controler_->PrintError(this, "Failed to parse sd response\n", true);
+        if( !ReadSDWriteResponse() )
+        {
             break;
         }
 
@@ -751,32 +740,24 @@ uint16_t SDCard::WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, u
         return 0;
     }
 
-    if( !spi_communication_->ReadData( data_read, sizeof(data_read) ) )
-    {   
-        debug_controler_->PrintError(this, "Failed to read StopTrans resp\n", true);
-        spi_communication_->SetCSPin(1);
-        return 0;
-    }
-    spi_communication_->SetCSPin(1);
-
-
-    uint16_t i = 0;
-    while(i < sizeof(data_read))
+    uint16_t curr_attempts = 0;
+    uint8_t cmd_read = 0xFF;
+    do
     {
-        if(data_read[i] > 0)
+        if( !spi_communication_->ReadData( &cmd_read, sizeof(cmd_read ) ) )
         {
             break;
         }
 
-        i++;
+        curr_attempts++;
+    } while ( cmd_read != 0xFF && curr_attempts < kMaxReadAttemps );
+    
+    if( curr_attempts == kMaxReadAttemps )
+    {
+        index = 0;
     }
 
-    if( i == sizeof(data_read) )
-    {       
-        debug_controler_->PrintError(this, "Failed to find non-busy flag\n", true);
-        return 0;
-    }
-
+    spi_communication_->SetCSPin(1);
     return index * block_len_;
 }
 
