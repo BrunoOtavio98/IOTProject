@@ -54,7 +54,7 @@ void DebugController::Task(void *params)
 			DispatchMessage(str);
 		}
 
-		TaskDelay(20);
+		TaskDelay(10);
 	} while(task_should_run_);
 }
 

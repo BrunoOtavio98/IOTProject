@@ -16,6 +16,15 @@ STM32SPICommunication::STM32SPICommunication( const SPIInterface::SPIConfigurati
                         : SPIInterface( spi_config ),
                           spi_handle_( std::make_unique<SPI_HandleTypeDef>() )
 {
+    ConfigSPI( spi_config );
+}
+
+STM32SPICommunication::~STM32SPICommunication()
+{
+}
+
+bool STM32SPICommunication::ConfigSPI( const SPIInterface::SPIConfiguration &spi_config )
+{
     spi_handle_->Instance = BaseSPIToHalSPINummber(  spi_config.spi_number );
 
     if( spi_config.spi_mode == SPIMode::Master )
@@ -44,12 +53,7 @@ STM32SPICommunication::STM32SPICommunication( const SPIInterface::SPIConfigurati
 
     ConfigureCSPin();
 
-    HAL_SPI_Init(spi_handle_.get());
-}
-
-STM32SPICommunication::~STM32SPICommunication()
-{
-
+    return ( HAL_SPI_Init(spi_handle_.get()) == HAL_OK );
 }
 
 void STM32SPICommunication::ConfigureCSPin()
@@ -64,6 +68,21 @@ void STM32SPICommunication::ConfigureCSPin()
 
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
     HAL_GPIO_WritePin( GPIOA, GPIO_PIN_4, GPIO_PIN_SET );
+}
+
+bool STM32SPICommunication::ResetSPIConfiguration( const SPIConfiguration &configuration )
+{
+    if( HAL_SPI_DeInit( spi_handle_.get() ) != HAL_OK)
+    {
+        return false;
+    }
+
+    if( group_of_SPIs.find( spi_handle_.get() ) != group_of_SPIs.end() )
+    {
+        group_of_SPIs.erase( spi_handle_.get() );
+    }
+
+    return ConfigSPI( configuration );
 }
 
 bool STM32SPICommunication::SetCSPin( uint8_t pin_value )

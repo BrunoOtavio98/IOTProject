@@ -250,7 +250,6 @@ bool SDCard::ParseSingleBlock( uint8_t *block_buffer, uint16_t size_block_buffer
         }
         else
         {
-            debug_controler_->PrintDebug(this, "Data read successfully\n", true);
             memcpy( data_read, &block_buffer[index], block_len_ );
             return true;
         }
@@ -502,7 +501,6 @@ uint16_t SDCard::ReadSingleBlock( uint32_t address, uint8_t *buffer_read, uint16
             break;
         }
 
-        uint8_t attempts = 5;
         uint8_t curr_attempts = 0;
         do
         {
@@ -511,9 +509,9 @@ uint16_t SDCard::ReadSingleBlock( uint32_t address, uint8_t *buffer_read, uint16
                 break;
             }
             curr_attempts++;
-        } while(cmd_response == 0xFF && curr_attempts < attempts);
+        } while(cmd_response == 0xFF && curr_attempts < kMaxReadAttemps);
 
-        if( curr_attempts == attempts || cmd_response != 0x0 )
+        if( curr_attempts == kMaxReadAttemps || cmd_response != 0x0 )
         {
             debug_controler_->PrintError(this, "Failed on CMD17 response\n", true);
             break;
@@ -566,7 +564,6 @@ uint16_t SDCard::ReadMultipleBlocks( uint32_t address, uint8_t *buffer_read, uin
             break;
         }
 
-        uint8_t attempts = 5;
         uint8_t curr_attempts = 0;
         do
         {
@@ -575,9 +572,9 @@ uint16_t SDCard::ReadMultipleBlocks( uint32_t address, uint8_t *buffer_read, uin
                 break;
             }
             curr_attempts++;
-        } while(cmd_response == 0xFF && curr_attempts < attempts);
+        } while(cmd_response == 0xFF && curr_attempts < kMaxReadAttemps);
 
-        if( curr_attempts == attempts || cmd_response != 0x0 )
+        if( curr_attempts == kMaxReadAttemps || cmd_response != 0x0 )
         {
             debug_controler_->PrintError(this, "Failed on CMD18 response\n", true);
             break;
@@ -719,7 +716,7 @@ uint16_t SDCard::WriteMultipleBlocks( uint32_t address, uint8_t *buffer_write, u
     {
         memcpy( &data_write[1], &buffer_write[index * block_len_], block_len_ );
         if( !spi_communication_->WriteData( data_write, sizeof(data_write) ) )
-        {   
+        {
             debug_controler_->PrintError(this, "Failed to write block\n", true);
             break;
         }

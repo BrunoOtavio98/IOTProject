@@ -148,6 +148,12 @@ void STM32Board::ConfigureSDCard()
   sd_spi_communication_ = std::make_shared<STM32SPICommunication>(spi_config);
 
   storage_interface_ = std::make_unique<SDCard>(sd_spi_communication_, debug_controller_);
+
+  if( storage_interface_->InitStorage() )
+  {   
+      spi_config.spi_baud_selector = SPIInterface::SPIBaudRatePrescaler::BaudRatePrescaler_2;
+      sd_spi_communication_->ResetSPIConfiguration( spi_config );
+  }
   rtos_task_manager_->CreateTask( *std::dynamic_pointer_cast<SDCard>(storage_interface_) );
 }
 
