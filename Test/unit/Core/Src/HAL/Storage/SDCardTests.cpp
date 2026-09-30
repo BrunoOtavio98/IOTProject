@@ -84,10 +84,16 @@ public:
         return static_cast<uint8_t>(SdCurrentVersion);
     }
 
+    void ResetCurrentVersion()
+    {
+        SdCurrentVersion = SDCardVersion::SDInvalid;
+    }
+
     SDCardHelper( std::shared_ptr<MockSPICommunicationInterface> spi_comm,
                   std::shared_ptr<MockDebugController> debug_controller )
                   : SDCard( spi_comm, debug_controller )
     {
+        SdCurrentVersion = SDCardVersion::SDVer2_BlockAddr;
     }
 };
 
@@ -362,6 +368,8 @@ TEST_F(SDCardTests, InitStorageSucceedsForSdCardVersion2Path)
 
 TEST_F(SDCardTests, InitStorageFailsWhenCmd8EchoDoesNotMatchSd2Pattern)
 {
+    sd_card_.ResetCurrentVersion();
+
     EXPECT_CALL(*spi_comm_, SetCSPin(::testing::_)).WillRepeatedly(::testing::Return(true));
     EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 75u)).WillOnce(::testing::Return(true));
     EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u)).Times(2).WillRepeatedly(::testing::Return(true));
@@ -385,6 +393,8 @@ TEST_F(SDCardTests, InitStorageFailsWhenCmd8EchoDoesNotMatchSd2Pattern)
 
 TEST_F(SDCardTests, InitStorageFailsWhenCardDoesNotLeaveIdleState)
 {
+    sd_card_.ResetCurrentVersion();
+
     EXPECT_CALL(*spi_comm_, SetCSPin(::testing::_)).WillRepeatedly(::testing::Return(true));
     EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 75u)).WillOnce(::testing::Return(true));
     EXPECT_CALL(*spi_comm_, WriteData(::testing::An<const uint8_t*>(), 6u)).Times(1).WillRepeatedly(::testing::Return(true));

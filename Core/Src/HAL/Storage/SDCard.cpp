@@ -762,6 +762,11 @@ bool SDCard::EraseRange( uint32_t start_address, uint32_t end_address )
 {
     uint8_t cmd_response = 0x00;
 
+    if( SdCurrentVersion == SDCardVersion::SDInvalid )
+    {
+        return false;
+    }
+
     if( end_address < start_address )
     {
         return false;
@@ -803,6 +808,11 @@ bool SDCard::EraseRange( uint32_t start_address, uint32_t end_address )
 
 uint16_t SDCard::ReadData( uint32_t address, uint8_t *buffer_read, uint16_t buffer_size )
 {
+    if( SdCurrentVersion == SDCardVersion::SDInvalid )
+    {
+        return false;
+    }
+
     uint16_t num_bytes_read = 0;
     do
     {
@@ -827,6 +837,11 @@ uint16_t SDCard::ReadData( uint32_t address, uint8_t *buffer_read, uint16_t buff
 
 uint16_t SDCard::WriteData( uint32_t address, uint8_t *buffer_write, uint16_t buffer_size )
 {
+    if( SdCurrentVersion == SDCardVersion::SDInvalid )
+    {
+        return false;
+    }
+
     uint16_t num_bytes_written = 0;
     do
     {
