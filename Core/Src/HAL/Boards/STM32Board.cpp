@@ -40,27 +40,7 @@ namespace Boards {
 
 STM32Board::STM32Board() : DebugInterface("STM32Board"), 
                            TaskWrapper("STM32Board", 500, nullptr, 2)
-{
-	//modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
-	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_1, "debug_uart_task");
-  //gnss_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_9600, UartCommunicationInterface::UartNumber::UART_2, "modem_uart_task");
-  rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
-  
-	debug_controller_ = std::make_shared<DebugController::DebugController>(DebugInterface::MessageVerbosity::INFO_MSG, debug_uart_communication_);
-  //gnss_interface_ = std::make_shared<GNSSInterface>(gnss_uart_communication_, debug_controller_);
-	debug_controller_->RegisterModuleToDebug(this);
-
-  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(debug_uart_communication_));
-  rtos_task_manager_->CreateTask(*debug_controller_);
-
-  ConfigureSDCard();
-
-  //rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(gnss_uart_communication_));
-  //rtos_task_manager_->CreateTask(*gnss_interface_);
-
-  //rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
-  rtos_task_manager_->CreateTask(*this);
-  
+{  
 	HAL_Init();
 	SystemClockConfig();
 }
@@ -82,7 +62,27 @@ void STM32Board::InitPeripherals(AvailableModemInterfaces selected_modem)
 {
   rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
 
-  //ConfigureModem(selected_modem);
+  modem_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_4, "modem_uart_task");
+	debug_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_115200, UartCommunicationInterface::UartNumber::UART_1, "debug_uart_task");
+  gnss_uart_communication_ = std::make_shared<STM32UartCommunication>(UartCommunicationInterface::BAUD_9600, UartCommunicationInterface::UartNumber::UART_2, "modem_uart_task");
+  rtos_task_manager_ = std::make_shared<TaskWrapperManager>();
+  
+	debug_controller_ = std::make_shared<DebugController::DebugController>(DebugInterface::MessageVerbosity::INFO_MSG, debug_uart_communication_);
+  gnss_interface_ = std::make_shared<GNSSInterface>(gnss_uart_communication_, debug_controller_);
+	debug_controller_->RegisterModuleToDebug(this);
+
+  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(debug_uart_communication_));
+  rtos_task_manager_->CreateTask(*debug_controller_);
+
+  ConfigureSDCard();
+
+  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(gnss_uart_communication_));
+  rtos_task_manager_->CreateTask(*gnss_interface_);
+
+  rtos_task_manager_->CreateTask(*std::dynamic_pointer_cast<STM32UartCommunication>(modem_uart_communication_));
+  rtos_task_manager_->CreateTask(*this);
+
+  ConfigureModem(selected_modem);
 
   osKernelStart();
 }
@@ -149,11 +149,11 @@ void STM32Board::ConfigureSDCard()
 
   storage_interface_ = std::make_unique<SDCard>(sd_spi_communication_, debug_controller_);
 
-  if( storage_interface_->InitStorage() )
-  {   
-      spi_config.spi_baud_selector = SPIInterface::SPIBaudRatePrescaler::BaudRatePrescaler_2;
-      sd_spi_communication_->ResetSPIConfiguration( spi_config );
-  }
+  // if( storage_interface_->InitStorage() )
+  // {   
+  //     spi_config.spi_baud_selector = SPIInterface::SPIBaudRatePrescaler::BaudRatePrescaler_2;
+  //     sd_spi_communication_->ResetSPIConfiguration( spi_config );
+  // }
   rtos_task_manager_->CreateTask( *std::dynamic_pointer_cast<SDCard>(storage_interface_) );
 }
 

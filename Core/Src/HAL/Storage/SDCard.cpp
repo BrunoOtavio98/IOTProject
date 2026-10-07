@@ -31,47 +31,11 @@ SDCard::~SDCard()
 {
 }
 
-uint8_t buffer_write[512];
-uint8_t attempts = 1;
-uint8_t current_cycle = 0;
-uint8_t buffer_read[512 * 6] = {0};
 void SDCard::Task(void *params)
-{   
-    memset(buffer_write, 0xFF, sizeof(buffer_write));
-    for(int i = 0; i<50; i++)
-    {
-        buffer_write[i] = i;
-    }
-
+{
+    // probably will be removed
     while(1)
     {
-        if( SdCurrentVersion == SDCardVersion::SDInvalid )
-        {   
-            debug_controler_->PrintDebug(this, "Running InitStorage\n", true);
-            InitStorage();
-        }
-        else
-        {   
-
-            debug_controler_->PrintDebug(this, "Testing multiple blocks cycles\n", true);
-
-            if(current_cycle < attempts)
-            {
-                debug_controler_->PrintDebug(this, "New cycle attempt\n", true);
-                //for(int i = 0; i<25; i++)
-                {
-                    //WriteData( i, buffer_write, sizeof(buffer_write) );
-                    ReadData( 0, buffer_read, sizeof(buffer_read) );
-                    //EraseRange(0, 24);
-                }
-                current_cycle++;
-            }
-            else
-            {
-                debug_controler_->PrintDebug(this, "Number of cycles finished\n", true);
-            }
-        }
-
         TaskDelay(100);
     }
 }
